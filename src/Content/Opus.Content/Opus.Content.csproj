@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Content</RootNamespace>
+    <AssemblyName>Opus.Content</AssemblyName>
+    <Description>Reusable asset, animation, glTF, image, mip-chain, and lightweight content data infrastructure.</Description>
+    <!-- Content DTO files intentionally group small related glTF/image records. -->
+    <NoWarn>$(NoWarn);SA1201;SA1402;MA0008</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StbImageSharp" />
+    <PackageReference Include="BCnEncoder.Net" />
+  </ItemGroup>
+
+</Project>

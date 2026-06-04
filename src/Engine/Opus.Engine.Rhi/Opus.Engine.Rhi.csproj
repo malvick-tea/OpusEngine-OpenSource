@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Rhi</RootNamespace>
+    <AssemblyName>Opus.Engine.Rhi</AssemblyName>
+    <Description>Render Hardware Interface — abstraction over D3D12 / Vulkan / Metal via Silk.NET (per ADR-0016). Phase R-0 ships interfaces + Null backend only; live D3D12 backend lands in R-1.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

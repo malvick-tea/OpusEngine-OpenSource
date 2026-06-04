@@ -1,0 +1,157 @@
+# OpusEngine .gitignore.
+# Patterns are case-sensitive (core.ignorecase=false).
+# Keep this file authoritative; do not bypass with `git add -f` unless
+# the policy here is intentionally being amended in the same change.
+
+# .NET / MSBuild build outputs
+bin/
+obj/
+artifacts/
+out/
+publish/
+
+# Centralised Opus build output (see Directory.Build.props redirects)
+build/output/
+
+# MSBuild structured + text logs
+*.binlog
+*.buildlog
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Roslyn / SourceLink intermediate
+*.metaproj
+*.metaproj.tmp
+*.tmp_proj
+*.tlog
+*.RoslynCA.json
+
+# Code coverage / test reporting
+TestResults/
+coverage/
+.coverage
+coverage.*.xml
+coverage.*.json
+coverage.*.info
+*.coverage
+*.coveragexml
+*.lcov
+*.opencover.xml
+*.trx
+
+# BenchmarkDotNet artefacts
+BenchmarkDotNet.Artifacts/
+
+# Snapshot-test received-output files (Verify / ApprovalTests)
+*.received.*
+*.received/
+
+# Local test-run scratch logs
+.dist/
+
+# Opus runtime artefacts. Local smoke runs may drop them under repo-relative paths.
+diagnostics/
+crashes/
+screenshots/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+!**/packages.lock.json
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.sln.iml
+*.vsidx
+*.vspx
+*.psess
+*.vspscc
+*.vssscc
+*.vshistory/
+.vshistory/
+_UpgradeReport_Files/
+Backup*/
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.opendb
+
+# JetBrains Rider / ReSharper
+.idea/
+*.DotSettings.user
+_ReSharper.Caches/
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# Editor scratch / swap files
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.rej
+
+# OS-level junk
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Secrets / local config. Must never reach the remote.
+*.local.json
+secrets.json
+*.secrets.json
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+appsettings.Local.json
+
+# Code-signing artefacts
+*.pfx
+*.snk
+*.p12
+*.key
+
+# Crash dumps / symbol bundles
+*.dmp
+*.mdmp
+*.hdmp
+*.pdb.zip
+*.symstore.zip
+
+# Misc tooling
+node_modules/
+.codecoverage/
+.sonarqube/
+.scannerwork/
+StyleCopReport.xml
+*.HTMLClient/GeneratedArtifacts/
+*.DesktopClient/GeneratedArtifacts/

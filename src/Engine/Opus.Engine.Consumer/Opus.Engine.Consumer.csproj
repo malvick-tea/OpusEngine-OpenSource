@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Consumer</RootNamespace>
+    <AssemblyName>Opus.Engine.Consumer</AssemblyName>
+    <Description>Engine-neutral consumer integration contracts for Opus alpha hosts: scene source, asset catalog, telemetry provider, lifecycle hooks, and the registration facade consumed by host assemblies. No renderer or D3D12 dependency.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.AlphaHarness\Opus.Engine.AlphaHarness.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Diagnostics\Opus.Engine.Diagnostics.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+  </ItemGroup>
+
+</Project>

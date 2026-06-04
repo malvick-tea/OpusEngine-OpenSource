@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Diagnostics</RootNamespace>
+    <AssemblyName>Opus.Engine.Diagnostics</AssemblyName>
+    <Description>Headless Opus diagnostics contracts for tester overlay models, rolling evidence capture, and failure reports. Renderer-specific drawing lives in host assemblies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

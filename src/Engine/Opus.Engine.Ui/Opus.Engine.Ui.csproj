@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Ui</RootNamespace>
+    <AssemblyName>Opus.Engine.Ui</AssemblyName>
+    <Description>UI primitives: backend-agnostic draw and input contracts. Opus 0.1 runtime UI is implemented by Engine.Ui.Direct3D12; this assembly stays renderer-neutral.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Input\Opus.Engine.Input.csproj" />
+  </ItemGroup>
+
+</Project>

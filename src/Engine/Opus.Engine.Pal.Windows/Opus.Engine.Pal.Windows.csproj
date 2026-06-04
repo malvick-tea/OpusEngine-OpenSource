@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Pal.Windows</RootNamespace>
+    <AssemblyName>Opus.Engine.Pal.Windows</AssemblyName>
+    <Description>Windows-specific concrete implementations of Engine.Pal contracts: VFS, lifecycle, clock, threading, process info, hardware, power, and crash handling. Windowing is composed through PAL services; Opus 0.1 rendering stays D3D12-only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Persistence\Opus.Persistence\Opus.Persistence.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+  </ItemGroup>
+
+</Project>

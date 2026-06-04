@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Pal.Windows.Direct3D12</RootNamespace>
+    <AssemblyName>Opus.Engine.Pal.Windows.Direct3D12</AssemblyName>
+    <Description>Composition adapter for the Opus 0.1 runtime D3D12 host: a PAL window/native handle, a D3D12 RHI device, a flip-discard swap chain, a DXC compiler, and an idiomatic Present-bracketed UI frame loop. Windows-only (D3D12).</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Sdl3\Opus.Engine.Pal.Sdl3.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi\Opus.Engine.Rhi.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi.D3D12\Opus.Engine.Rhi.D3D12.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Direct3D12" />
+  </ItemGroup>
+
+</Project>

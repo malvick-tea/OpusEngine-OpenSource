@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.FrameGraph</RootNamespace>
+    <AssemblyName>Opus.Engine.FrameGraph</AssemblyName>
+    <Description>Render-pass graph layered over Engine.Rhi (per ADR-0014). Passes declare resource reads / writes; the compiler resolves to barrier-correct, transient-aliased command schedules. Phase R-0 ships interfaces + Null implementation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi\Opus.Engine.Rhi.csproj" />
+  </ItemGroup>
+
+</Project>

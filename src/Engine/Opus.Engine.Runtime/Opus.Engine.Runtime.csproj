@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Runtime</RootNamespace>
+    <AssemblyName>Opus.Engine.Runtime</AssemblyName>
+    <Description>Opus host lifecycle and fixed-tick frame orchestration. Keeps runtime timing and shutdown policy separate from platform backends and renderer implementations.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+  </ItemGroup>
+
+</Project>

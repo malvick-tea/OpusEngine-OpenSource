@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Host.Windows.Direct3D12.Tests</RootNamespace>
+    <AssemblyName>Opus.Engine.Host.Windows.Direct3D12.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Consumer\Opus.Engine.Consumer.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Host.Windows.Direct3D12\Opus.Engine.Host.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Windows.Direct3D12\Opus.Engine.Pal.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Renderer.Direct3D12\Opus.Engine.Renderer.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi.D3D12\Opus.Engine.Rhi.D3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Runtime\Opus.Engine.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Xunit.SkippableFact" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

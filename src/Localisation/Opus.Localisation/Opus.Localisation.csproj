@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Localisation</RootNamespace>
+    <AssemblyName>Opus.Localisation</AssemblyName>
+    <Description>Translation catalogues, message format, plural rules, locale infrastructure.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.App.OpusAlpha.Tests</RootNamespace>
+    <AssemblyName>Opus.App.OpusAlpha.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Opus.App.OpusAlpha\Opus.App.OpusAlpha.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Consumer\Opus.Engine.Consumer.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Host.Windows.Direct3D12\Opus.Engine.Host.Windows.Direct3D12.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Built and copied beside the tests so ConsumerIntegrationAssemblyLoader can load it from
+         disk as a real external plugin. NOT referenced (ReferenceOutputAssembly=false): the loader
+         must discover it in an isolated context, not via the default-context compile reference. -->
+    <ProjectReference Include="..\Opus.App.OpusAlpha.Tests.ConsumerPluginFixture\Opus.App.OpusAlpha.Tests.ConsumerPluginFixture.csproj"
+                      ReferenceOutputAssembly="false"
+                      OutputItemType="Content"
+                      CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Xunit.SkippableFact" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

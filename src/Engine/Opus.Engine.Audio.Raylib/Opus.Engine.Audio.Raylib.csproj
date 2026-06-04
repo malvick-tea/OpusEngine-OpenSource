@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Audio.Raylib</RootNamespace>
+    <AssemblyName>Opus.Engine.Audio.Raylib</AssemblyName>
+    <Description>Alpha-grade Raylib/miniaudio output backend for Opus short and looping sound effects.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Opus.Engine.Audio\Opus.Engine.Audio.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Raylib-cs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Host.Windows.Direct3D12</RootNamespace>
+    <AssemblyName>Opus.Engine.Host.Windows.Direct3D12</AssemblyName>
+    <Description>Composition layer for the Opus 0.1 runtime D3D12 host. Wires the renderer-agnostic Opus.Engine.Runtime spine to the Windows/D3D12 alpha-frame path (D3D12WindowSession + D3D12SceneViewport + D3D12ForwardSceneRenderer + D3D12UiFrameLoop + D3D12DrawSurface) plus rolling frame-time metrics and a metadata-tagged PNG screenshot capture. Windows-only.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Content\Opus.Content\Opus.Content.csproj" />
+    <ProjectReference Include="..\Opus.Engine.AlphaHarness\Opus.Engine.AlphaHarness.csproj" />
+    <ProjectReference Include="..\Opus.Engine.AlphaStress\Opus.Engine.AlphaStress.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Consumer\Opus.Engine.Consumer.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Diagnostics\Opus.Engine.Diagnostics.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Input\Opus.Engine.Input.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Sdl3\Opus.Engine.Pal.Sdl3.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Windows.Direct3D12\Opus.Engine.Pal.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi\Opus.Engine.Rhi.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi.D3D12\Opus.Engine.Rhi.D3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Renderer\Opus.Engine.Renderer.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Renderer.Direct3D12\Opus.Engine.Renderer.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Ui\Opus.Engine.Ui.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Ui.Direct3D12\Opus.Engine.Ui.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Runtime\Opus.Engine.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Direct3D12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Opus.Engine.Host.Windows.Direct3D12.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Audio</RootNamespace>
+    <AssemblyName>Opus.Engine.Audio</AssemblyName>
+    <Description>Audio contracts (IAudioDevice / ISfxPlayer / IMusicPlayer + AudioMixer) shared by every host. Concrete backends live in Engine.Audio.{Raylib,Wwise,…}.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

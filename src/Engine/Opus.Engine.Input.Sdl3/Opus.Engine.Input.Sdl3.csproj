@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Input.Sdl3</RootNamespace>
+    <AssemblyName>Opus.Engine.Input.Sdl3</AssemblyName>
+    <Description>SDL3-backed implementation of Engine.Input.IInputSource. Subscribes to SDL key + mouse + wheel events through SdlWindowService and exposes the engine's poll-based input contract. Window/input only; rendering remains the runtime D3D12 path.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Input\Opus.Engine.Input.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Sdl3\Opus.Engine.Pal.Sdl3.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Opus.Engine.Input.Sdl3.Tests" />
+  </ItemGroup>
+
+</Project>

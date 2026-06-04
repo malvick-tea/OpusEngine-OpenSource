@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Renderer</RootNamespace>
+    <AssemblyName>Opus.Engine.Renderer</AssemblyName>
+    <Description>High-level scene / camera / material / lighting API on top of Engine.FrameGraph + Engine.Rhi. The renderer composes canonical render passes (Forward+ per ADR-0018) and consumes scene state from extract layer. Phase R-0 ships interfaces + Null implementation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi\Opus.Engine.Rhi.csproj" />
+    <ProjectReference Include="..\Opus.Engine.FrameGraph\Opus.Engine.FrameGraph.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,80 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Treat warnings as errors only in CI. Locally we want fast iteration. -->
+    <TreatWarningsAsErrors Condition="'$(CI)' == 'true'">true</TreatWarningsAsErrors>
+
+    <AnalysisLevel>latest-Recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <DebugType>portable</DebugType>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <NeutralLanguage>en</NeutralLanguage>
+    <Company>Vellum</Company>
+    <Product>Opus</Product>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix>alpha</VersionSuffix>
+    <Version>$(VersionPrefix)-$(VersionSuffix)</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <Copyright>Copyright Vellum / OpusEngine project.</Copyright>
+
+    <!--
+      Suppress analyzer rules that fight our code style or produce false positives.
+      Keep this list narrow — every entry is a deliberate trade-off, not a workaround.
+        SA0001     — XML comment analysis disabled, informational
+        SA1101     — 'this.' prefix; modern C# does not need it
+        SA1200     — using placement; we set outside_namespace in .editorconfig
+        SA1309     — underscore prefix on private fields IS our convention
+        SA1311     — static readonly PascalCase; we use it on purpose
+        SA1413     — trailing comma; style preference
+        SA1601     — document partial classes; we group related types on purpose
+        SA1602     — document enum members; overkill for typed code
+        SA1614/1615 — param/return XML tags; XML doc is not mandatory
+        SA1623/1629/1642 — XML doc text format nitpicks
+        SA1633     — file header; copyright lives in NOTICE/LICENSE
+        SA1649     — filename matches top-level type; we group related types on purpose
+        CA1000     — static members on generic types; Result&lt;T&gt;.Ok is idiomatic
+        CA1707     — underscores in identifiers; test method names use them
+        CA1716     — reserved-language identifier name false positives
+        CA1812     — uninstantiated internal classes; DI activates them via reflection
+        CA1848     — LoggerMessage delegates; not worth ceremony in non-hot-path code
+        CA1859     — concrete types over interfaces in fields; clarity wins
+        CA2007     — ConfigureAwait; we control SyncContext at host boundary
+        MA0006     — string.Equals over ==; record == is compiler-generated, not equality op
+        MA0026     — TODO comments allowed during pre-release work
+        MA0048     — filename matches type; same as SA1649
+        MA0051     — method too long; readable composers are fine
+        MA0053     — class should be sealed; not always our intent
+    -->
+    <NoWarn>$(NoWarn);SA0001;SA1101;SA1200;SA1309;SA1311;SA1413;SA1601;SA1602;SA1614;SA1615;SA1623;SA1629;SA1633;SA1642;SA1649;CA1000;CA1707;CA1716;CA1812;CA1848;CA1859;CA2007;MA0006;MA0026;MA0048;MA0051;MA0053</NoWarn>
+    <!--
+      M4 clean-rebuild compatibility: these rules fire on extraction-era code
+      after central Opus 0.1 metadata forces a full rebuild. Keep the debt
+      explicit until lead schedules a focused analyzer cleanup pass.
+    -->
+    <NoWarn>$(NoWarn);CS0618;SA1009;SA1025;SA1028;SA1108;SA1117;SA1201;SA1202;SA1204;SA1211;SA1214;SA1306;SA1313;SA1401;SA1402;SA1407;SA1503;SA1515;SA1516;SA1519;CA1051;CA1510;CA1513;CA1711;CA1822;CA1825;CA1861;MA0004;MA0005;MA0008;MA0015;MA0016;MA0025;MA0046;MA0099;RCS1194;RCS1242</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Label="ProjectLayout">
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <ArtifactsPath>$(RepoRoot)build/output/</ArtifactsPath>
+  </PropertyGroup>
+
+  <ItemGroup Label="GlobalAnalyzers">
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Label="GlobalConfig">
+    <AdditionalFiles Include="$(RepoRoot)stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+</Project>

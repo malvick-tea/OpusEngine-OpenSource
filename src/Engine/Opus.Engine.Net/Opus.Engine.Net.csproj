@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Net</RootNamespace>
+    <AssemblyName>Opus.Engine.Net</AssemblyName>
+    <Description>Engine-level network runtime for Opus 0.1: stable session contracts on top of Opus.Net transports, deterministic statistics + telemetry snapshots, reconnect policy, structured log routing, and a transport-agnostic soak harness for 20-player-style stress. Headless; references Foundation + Opus.Net only. Knows nothing about D3D12, renderers, host, or consumer game rules.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Net\Opus.Net\Opus.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Opus.Engine.Net.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.AlphaStress</RootNamespace>
+    <AssemblyName>Opus.Engine.AlphaStress</AssemblyName>
+    <Description>Engine-neutral M11 alpha-host stress harness: multi-iteration smoke aggregation, deterministic frame pacing observer, working-set/GC memory probe, fault-injection seam, and known-issue ledger schema. Sits above Opus.Engine.AlphaHarness, Opus.Engine.Net, Opus.Engine.Diagnostics, and Foundation only; carries no D3D12, renderer, host, or game-side rule dependency.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Net\Opus.Net\Opus.Net.csproj" />
+    <ProjectReference Include="..\Opus.Engine.AlphaHarness\Opus.Engine.AlphaHarness.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Diagnostics\Opus.Engine.Diagnostics.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+  </ItemGroup>
+
+</Project>

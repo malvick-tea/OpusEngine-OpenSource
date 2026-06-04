@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Physics</RootNamespace>
+    <AssemblyName>Opus.Engine.Physics</AssemblyName>
+    <Description>Game-agnostic deterministic physical models for atmosphere, exterior ballistics, powertrains, and ground vehicles.</Description>
+  </PropertyGroup>
+
+</Project>

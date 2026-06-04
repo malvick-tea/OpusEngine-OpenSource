@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.App.OpusAlpha.Tests.ConsumerPluginFixture</RootNamespace>
+    <AssemblyName>Opus.App.OpusAlpha.Tests.ConsumerPluginFixture</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <Description>Test-only consumer plugin fixture. Built as a standalone assembly and copied beside the alpha-host tests so ConsumerIntegrationAssemblyLoader can load it from disk as a real external plugin in an isolated context.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Consumer\Opus.Engine.Consumer.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Pal</RootNamespace>
+    <AssemblyName>Opus.Engine.Pal</AssemblyName>
+    <Description>Platform abstraction layer: window, filesystem, threading, networking transport, process, hardware, power, and time. Contracts only; concrete implementations live in platform sibling assemblies. PAL pulls only Foundation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Label="PAL sees only Foundation; renderer backends and platform implementations live in sibling assemblies.">
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

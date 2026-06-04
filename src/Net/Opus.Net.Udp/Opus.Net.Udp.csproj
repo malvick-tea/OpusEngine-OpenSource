@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Net.Udp</RootNamespace>
+    <AssemblyName>Opus.Net.Udp</AssemblyName>
+    <Description>Real UDP-socket implementation of INetTransport (Opus.Net.Transport.INetTransport). Runtime counterpart to the in-process LoopbackTransport. Client side is 1:1; server side accepts N peers concurrently. Unblocks cross-process local test multiplayer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Label="Sits above Opus.Net only — payload-agnostic, knows nothing about Sim wire types">
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Net\Opus.Net.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Opus.Net.Udp.Tests" />
+  </ItemGroup>
+
+</Project>

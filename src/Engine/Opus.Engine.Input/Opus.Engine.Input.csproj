@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Input</RootNamespace>
+    <AssemblyName>Opus.Engine.Input</AssemblyName>
+    <Description>Input contracts (IInputSource + Key/MouseButton enums) shared by every Opus UI / host surface. Concrete polling lives in platform assemblies such as Engine.Input.Sdl3; graphics remain owned by the D3D12 renderer path.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+</Project>

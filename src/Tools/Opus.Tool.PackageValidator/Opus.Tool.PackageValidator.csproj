@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Tool.PackageValidator</RootNamespace>
+    <AssemblyName>Opus.Tool.PackageValidator</AssemblyName>
+    <Description>Command-line Opus content package validator.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Content\Opus.Content.Packaging\Opus.Content.Packaging.csproj" />
+    <ProjectReference Include="..\..\Localisation\Opus.Localisation\Opus.Localisation.csproj" />
+  </ItemGroup>
+
+</Project>

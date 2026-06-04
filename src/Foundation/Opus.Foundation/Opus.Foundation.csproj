@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Foundation</RootNamespace>
+    <AssemblyName>Opus.Foundation</AssemblyName>
+    <Description>Zero-dependency primitives used by every Opus 0.1 assembly: diagnostics, geometry, logging, time, and product/version identity.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Label="Allowed dependencies — Foundation has zero ProjectReference; only abstractions">
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

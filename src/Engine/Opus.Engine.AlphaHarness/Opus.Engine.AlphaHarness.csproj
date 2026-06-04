@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.AlphaHarness</RootNamespace>
+    <AssemblyName>Opus.Engine.AlphaHarness</AssemblyName>
+    <Description>Engine-neutral M9 alpha-host harness: smoke profile/outcome/report writer, alpha package checklist on top of Opus.Content.Packaging, known-good machine profile capture + comparison, and large/small alpha scene scale presets. Consumed by the runtime D3D12 host through plain options; does not depend on D3D12 itself.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Content\Opus.Content.Packaging\Opus.Content.Packaging.csproj" />
+    <ProjectReference Include="..\..\Net\Opus.Net\Opus.Net.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Diagnostics\Opus.Engine.Diagnostics.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+  </ItemGroup>
+
+</Project>

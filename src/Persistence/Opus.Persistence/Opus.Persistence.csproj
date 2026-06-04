@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Persistence</RootNamespace>
+    <AssemblyName>Opus.Persistence</AssemblyName>
+    <Description>Save / replay / snapshot serialisation. Codec contracts; no host I/O — that's the host's job.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MemoryPack" />
+  </ItemGroup>
+
+</Project>

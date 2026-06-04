@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Content.Packaging</RootNamespace>
+    <AssemblyName>Opus.Content.Packaging</AssemblyName>
+    <Description>Headless Opus content package manifest, validation, and diagnostics contracts.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Content\Opus.Content.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.App.OpusAlpha</RootNamespace>
+    <AssemblyName>Opus.App.OpusAlpha</AssemblyName>
+    <Description>Smallest runnable Opus 0.1 D3D12 alpha host. Opens a live D3D12 window via Opus.Engine.Host.Windows.Direct3D12, drives variable-delta frames through OpusHost.Step until the user closes the window or presses Ctrl-C, then disposes cleanly. First dotnet-run entry point for Opus. Windows-only at runtime; the project itself builds cross-platform so CI can compile-check it.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Content\Opus.Content.Packaging\Opus.Content.Packaging.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.AlphaHarness\Opus.Engine.AlphaHarness.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.AlphaStress\Opus.Engine.AlphaStress.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Consumer\Opus.Engine.Consumer.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Diagnostics\Opus.Engine.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Host.Windows.Direct3D12\Opus.Engine.Host.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Net\Opus.Engine.Net.csproj" />
+    <ProjectReference Include="..\..\Persistence\Opus.Persistence\Opus.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

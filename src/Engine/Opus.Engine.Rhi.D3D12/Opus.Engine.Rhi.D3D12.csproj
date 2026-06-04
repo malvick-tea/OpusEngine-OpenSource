@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Engine.Rhi.Direct3D12</RootNamespace>
+    <AssemblyName>Opus.Engine.Rhi.D3D12</AssemblyName>
+    <Description>Direct3D 12 backend for Engine.Rhi (per ADR-0016). Windows-only. Uses Silk.NET.Direct3D12 + Silk.NET.DXGI bindings; this is the only assembly that touches them — Engine.Rhi stays backend-agnostic.</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Rhi\Opus.Engine.Rhi.csproj" />
+    <ProjectReference Include="..\Opus.Engine.FrameGraph\Opus.Engine.FrameGraph.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Core" />
+    <PackageReference Include="Silk.NET.Maths" />
+    <PackageReference Include="Silk.NET.Direct3D12" />
+    <PackageReference Include="Silk.NET.Direct3D.Compilers" />
+    <PackageReference Include="Silk.NET.DXGI" />
+  </ItemGroup>
+
+</Project>
