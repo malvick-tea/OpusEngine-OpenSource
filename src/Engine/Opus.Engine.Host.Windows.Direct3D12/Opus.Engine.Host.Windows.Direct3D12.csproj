@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.Host.Windows.Direct3D12</RootNamespace>
     <AssemblyName>Opus.Engine.Host.Windows.Direct3D12</AssemblyName>
-    <Description>Composition layer for the Opus 0.1 runtime D3D12 host. Wires the renderer-agnostic Opus.Engine.Runtime spine to the Windows/D3D12 alpha-frame path (D3D12WindowSession + D3D12SceneViewport + D3D12ForwardSceneRenderer + D3D12UiFrameLoop + D3D12DrawSurface) plus rolling frame-time metrics and a metadata-tagged PNG screenshot capture. Windows-only.</Description>
+    <Description>Composition layer for the Opus 0.1 production D3D12 host. Wires the renderer-agnostic Opus.Engine.Runtime spine to the Windows/D3D12 alpha-frame path (D3D12WindowSession + D3D12SceneViewport + D3D12ForwardSceneRenderer + D3D12UiFrameLoop + D3D12DrawSurface) plus rolling frame-time metrics and a metadata-tagged PNG screenshot capture. Windows-only.</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

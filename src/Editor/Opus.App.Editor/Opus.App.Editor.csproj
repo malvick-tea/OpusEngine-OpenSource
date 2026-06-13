@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.App.Editor</RootNamespace>
+    <AssemblyName>Opus.App.Editor</AssemblyName>
+    <Description>Opus 0.1 UI Edition editor application. EM2: a headless scene-document console (new / show / dsl) over Opus.Editor.Core, proving the document core, JSON serialisation, and the pseudo-code mirror end to end. The live D3D12 authoring window lands in a later EM phase.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Persistence\Opus.Persistence\Opus.Persistence.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Input.Sdl3\Opus.Engine.Input.Sdl3.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Pal.Windows.Direct3D12\Opus.Engine.Pal.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Core\Opus.Editor.Core.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Content\Opus.Editor.Content.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Ui\Opus.Editor.Ui.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Direct3D12\Opus.Editor.Direct3D12.csproj" />
+  </ItemGroup>
+
+</Project>

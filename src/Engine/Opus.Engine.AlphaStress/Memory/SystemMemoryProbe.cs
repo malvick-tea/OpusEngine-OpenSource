@@ -3,7 +3,7 @@ using System;
 namespace Opus.Engine.AlphaStress.Memory;
 
 /// <summary>
-/// Runtime <see cref="IMemoryProbe"/> implementation. Reads
+/// Production <see cref="IMemoryProbe"/> implementation. Reads
 /// <see cref="GC.GetTotalMemory"/> with <c>forceFullCollection: false</c>, the current
 /// process working set via <see cref="Environment.WorkingSet"/>, and the per-generation
 /// collection counters. A single observation completes in well under a millisecond on

@@ -6,7 +6,7 @@ namespace Opus.Engine.Rhi.Direct3D12;
 
 /// <summary>Writes a <see cref="D3D12Screenshot"/> out as a dependency-free 32-bit BMP.
 /// Retained from the M5 alpha smoke for cases that need a zero-metadata, lossless dump
-/// (e.g., a quick eyeball check). Runtime bug-report captures use the PNG path so
+/// (e.g., a quick eyeball check). Production bug-report captures use the PNG path so
 /// build identity travels with the image.</summary>
 public static class D3D12ScreenshotBmpWriter
 {

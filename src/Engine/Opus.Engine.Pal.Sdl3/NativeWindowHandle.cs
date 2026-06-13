@@ -8,7 +8,7 @@ namespace Opus.Engine.Pal.Sdl3;
 /// xcb/wayland surface on Linux); this struct carries it without leaking
 /// platform-specific types into <see cref="Application.IWindowService"/>.
 ///
-/// Runtime renderer dispatches on <see cref="Kind"/> to call the right swap chain
+/// Production renderer dispatches on <see cref="Kind"/> to call the right swap chain
 /// constructor (DXGI for HWND, MetalLayer for macOS, VkSurface for Linux).
 /// </summary>
 public readonly record struct NativeWindowHandle(NativeWindowKind Kind, IntPtr Handle, IntPtr Display)

@@ -24,7 +24,7 @@ public static class KnownGoodMachineCapture
     /// <summary>Captures a profile from the current process.</summary>
     /// <param name="profileName">Stable display name to record into the profile.</param>
     /// <param name="capturedAtUtc">UTC timestamp the caller wants stamped onto the
-    /// profile. Tests usually pass a fixed timestamp; runtime hosts use
+    /// profile. Tests usually pass a fixed timestamp; production hosts use
     /// <see cref="DateTimeOffset.UtcNow"/>.</param>
     /// <param name="graphicsAdapterName">Live D3D12 adapter name when available, or null
     /// when the host could not open a graphics device.</param>

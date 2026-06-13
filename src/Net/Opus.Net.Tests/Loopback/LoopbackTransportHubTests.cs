@@ -10,7 +10,7 @@ namespace Opus.Net.Tests.Loopback;
 
 /// <summary>Coverage for the multi-peer hub variant of the loopback transport.
 /// <see cref="LoopbackTransportPair"/> is already covered by <see cref="LoopbackTransportTests"/>;
-/// the tests here pin the **N:1** contract that the local test multiplayer build
+/// the tests here pin the **N:1** contract that the closed-alpha multiplayer build
 /// needs — multiple clients addressed by distinct ids, server-side fan-out per peer,
 /// per-peer disconnect that doesn't take other peers with it.</summary>
 public sealed class LoopbackTransportHubTests

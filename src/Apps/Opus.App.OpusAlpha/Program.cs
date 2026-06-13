@@ -7,7 +7,7 @@ using Opus.Foundation;
 
 namespace Opus.App.OpusAlpha;
 
-/// <summary>Entry point for the runtime D3D12 Opus 0.1 alpha host sample. M9
+/// <summary>Entry point for the production D3D12 Opus 0.1 alpha host sample. M9
 /// extends the M5.1 single-purpose Window mode with a small dispatch shell so the same
 /// binary can drive a headless smoke, run the M9 alpha-package checklist, capture or
 /// compare a machine profile, and drive the M8 loopback soak harness. The Window mode

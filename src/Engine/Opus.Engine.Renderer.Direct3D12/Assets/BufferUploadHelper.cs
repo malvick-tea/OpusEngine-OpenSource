@@ -6,7 +6,7 @@ namespace Opus.Engine.Renderer.Direct3D12.Assets;
 
 /// <summary>Tiny internal helper for uploading typed arrays into <see cref="D3D12Buffer"/>
 /// staging slots. Mirrors the test-side <c>BufferUpload</c> helper but stays in the
-/// runtime layer so <see cref="D3D12GltfSceneLoader"/> doesn't reach across to test
+/// production layer so <see cref="D3D12GltfSceneLoader"/> doesn't reach across to test
 /// fixtures. When the abstract <c>IRhiBuffer</c> upload surface lands, this collapses
 /// into one call on the abstract device.</summary>
 internal static class BufferUploadHelper

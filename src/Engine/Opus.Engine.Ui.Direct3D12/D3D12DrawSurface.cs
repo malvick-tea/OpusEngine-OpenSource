@@ -17,7 +17,7 @@ namespace Opus.Engine.Ui.Direct3D12;
 /// current frame's vertex buffer and issues a single non-indexed draw against the bound
 /// render target.
 /// <para>
-/// Caller orchestration (the game client host, when it lands):
+/// Caller orchestration (Opus Windows D3D12 host):
 /// open the command list → transition swap-chain back-buffer Present→RenderTarget → call
 /// <see cref="BeginFrame"/> → push <see cref="IDrawSurface"/> primitives → call
 /// <see cref="EndFrame"/> → transition RenderTarget→Present → close + execute + Present.

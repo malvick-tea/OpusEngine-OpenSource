@@ -3,7 +3,7 @@ using Silk.NET.Direct3D12;
 namespace Opus.Engine.Rhi.Direct3D12;
 
 /// <summary>
-/// Reusable static-sampler descriptors. Most runtime root sigs need exactly
+/// Reusable static-sampler descriptors. Most production root sigs need exactly
 /// one of {linear-clamp, linear-wrap, comparison-less-equal}; collecting them
 /// here removes 14-line StaticSamplerDesc copy-pastes from every Create* method.
 /// </summary>
@@ -63,7 +63,7 @@ internal static class StaticSamplerLibrary
             ShaderVisibility = visibility,
         };
 
-    /// <summary>Anisotropic wrap sampler — the runtime choice for textured 3D meshes.
+    /// <summary>Anisotropic wrap sampler — the production choice for textured 3D meshes.
     /// Anisotropy keeps surfaces viewed at a grazing angle (tank side armour seen from an
     /// orbit camera) sharp where a plain trilinear sampler over-blurs them; <c>MaxLOD</c>
     /// is uncapped so the full uploaded mip chain is sampled.</summary>

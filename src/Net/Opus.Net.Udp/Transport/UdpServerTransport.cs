@@ -15,7 +15,7 @@ namespace Opus.Net.Udp.Transport;
 /// Real-socket UDP <see cref="INetTransport"/> for the server side. Binds a UDP socket
 /// to a known local endpoint, accepts arbitrarily many client links concurrently, and
 /// hands every observed event to game code through <see cref="Poll"/>. The N:1 sibling
-/// of <see cref="UdpClientTransport"/>; runtime counterpart of
+/// of <see cref="UdpClientTransport"/>; production counterpart of
 /// <see cref="Loopback.LoopbackTransportHub"/>.
 /// </summary>
 /// <remarks>

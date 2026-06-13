@@ -12,8 +12,8 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// for inline HLSL string compilation. Returns the bytecode the D3D12 PSO factory feeds
 /// to <see cref="GraphicsPipelineFactory"/>.
 ///
-/// Note vs ADR-0017: runtime shader bytecode comes from the **offline asset bake**
-/// (per ADR-0012) — `opus-import` invokes DXC at build time and ships `.gshd` blobs.
+/// Note vs ADR-0017: production shader bytecode comes from the **offline asset bake**
+/// (per ADR-0012): asset-bake tooling invokes DXC at build time and ships `.gshd` blobs.
 /// Runtime DXC stays available for dev-mode hot reload + integration tests + sandbox
 /// programs, but the ship build does not invoke it on the hot path.
 ///

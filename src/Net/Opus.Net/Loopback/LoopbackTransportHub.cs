@@ -12,7 +12,7 @@ namespace Opus.Net.Loopback;
 /// instances, each on its own <see cref="ConnectionId"/>. The 1:1 sibling
 /// <see cref="LoopbackTransportPair"/> ships a single fixed link; the hub is for any test
 /// or single-process dev run where the server must talk to several clients at once (the
-/// local test multiplayer build's 5v5 / 10v10 / 20-player modes all need this shape).
+/// closed-alpha multiplayer build's 5v5 / 10v10 / 20-player modes all need this shape).
 /// </summary>
 /// <remarks>
 /// <para>

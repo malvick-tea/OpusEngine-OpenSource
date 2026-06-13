@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.Input.Sdl3</RootNamespace>
     <AssemblyName>Opus.Engine.Input.Sdl3</AssemblyName>
-    <Description>SDL3-backed implementation of Engine.Input.IInputSource. Subscribes to SDL key + mouse + wheel events through SdlWindowService and exposes the engine's poll-based input contract. Window/input only; rendering remains the runtime D3D12 path.</Description>
+    <Description>SDL3-backed implementation of Engine.Input.IInputSource. Subscribes to SDL key + mouse + wheel events through SdlWindowService and exposes the engine's poll-based input contract. Window/input only; rendering remains the production D3D12 path.</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

@@ -4,7 +4,7 @@ using Opus.Engine.AlphaStress.FramePacing;
 namespace Opus.Engine.Host.Windows.Direct3D12.Frame;
 
 /// <summary>
-/// Configuration record for the runtime alpha-frame budget watchdog. Disabled by
+/// Configuration record for the production alpha-frame budget watchdog. Disabled by
 /// default; consumers opt in through <see cref="D3D12OpusApplicationOptions"/> when
 /// they want the host to emit warnings each time the rolling frame window breaches
 /// the configured thresholds. Closes the M5.1 "alpha frame budget observed but not
@@ -27,7 +27,7 @@ public sealed record D3D12AlphaFrameBudgetPolicy(
     /// one log line per failing window instead of one per frame.</summary>
     public static readonly TimeSpan DefaultEvaluationInterval = TimeSpan.FromSeconds(1);
 
-    /// <summary>Disabled-by-default policy. Runtime hosts opt in explicitly.</summary>
+    /// <summary>Disabled-by-default policy. Production hosts opt in explicitly.</summary>
     public static D3D12AlphaFrameBudgetPolicy Disabled { get; } = new(
         Enabled: false,
         EvaluationInterval: DefaultEvaluationInterval,

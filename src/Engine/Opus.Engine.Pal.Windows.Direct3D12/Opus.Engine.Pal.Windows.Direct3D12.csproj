@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.Pal.Windows.Direct3D12</RootNamespace>
     <AssemblyName>Opus.Engine.Pal.Windows.Direct3D12</AssemblyName>
-    <Description>Composition adapter for the Opus 0.1 runtime D3D12 host: a PAL window/native handle, a D3D12 RHI device, a flip-discard swap chain, a DXC compiler, and an idiomatic Present-bracketed UI frame loop. Windows-only (D3D12).</Description>
+    <Description>Composition adapter for the Opus 0.1 production D3D12 host: a PAL window/native handle, a D3D12 RHI device, a flip-discard swap chain, a DXC compiler, and an idiomatic Present-bracketed UI frame loop. Windows-only (D3D12).</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 

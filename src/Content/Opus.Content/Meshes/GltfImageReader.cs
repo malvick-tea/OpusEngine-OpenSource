@@ -134,7 +134,7 @@ public static class GltfImageReader
     /// but no <c>materials[].pbrMetallicRoughness.baseColorTexture</c> chain (Godot exports,
     /// glTF 1.0-style materials, KHR_materials_pbrSpecularGlossiness exports, etc.). Returns
     /// the first <see cref="GltfImage"/> that references an embedded <c>bufferView</c> —
-    /// usually the hull-camo texture for vehicle assets like the legacy a sample vehicle.</summary>
+    /// usually the hull-camo texture for vehicle assets like the legacy Pz.IV.</summary>
     public static GltfTextureBlob? TryReadFirstEmbeddedImage(ReadOnlySpan<byte> glb)
     {
         var blobs = ReadAllEmbeddedImages(glb);
@@ -233,7 +233,7 @@ public static class GltfImageReader
     /// <list type="number">
     /// <item>glTF 2.0 core <c>pbrMetallicRoughness.baseColorTexture</c> + <c>baseColorFactor</c>.</item>
     /// <item>Legacy <c>KHR_materials_pbrSpecularGlossiness.diffuseTexture</c> + <c>diffuseFactor</c>
-    /// (used by Godot 3.x exports — the entire sample-vehicle catalogue we ship was authored this way).</item>
+    /// (used by Godot 3.x exports — the entire Pz.IV catalogue we ship was authored this way).</item>
     /// </list>
     /// The returned binding holds the glTF <c>images[]</c> declaration index,
     /// not the texture index — callers upload images once and bind by material → image lookup.
@@ -278,7 +278,7 @@ public static class GltfImageReader
         var emissiveFactor = Vector3Factor(material.EmissiveFactor);
 
         // glTF 2.0 says pbrMetallicRoughness is the canonical PBR branch; the extensions
-        // table is consulted only when the canonical branch is absent. sample-vehicle legacy
+        // table is consulted only when the canonical branch is absent. Pz.IV-style legacy
         // Godot exports omit pbrMetallicRoughness entirely and rely on the spec-gloss
         // extension — the fallback below handles that case without conflicting on assets
         // that declare both.

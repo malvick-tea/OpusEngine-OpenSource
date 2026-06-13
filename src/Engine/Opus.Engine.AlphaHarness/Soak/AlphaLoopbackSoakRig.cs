@@ -10,7 +10,7 @@ namespace Opus.Engine.AlphaHarness.Soak;
 /// Loopback-backed <see cref="INetSoakRig"/> the M9 alpha host CLI uses to drive the
 /// existing <see cref="NetSoakHarness"/> without standing up a real UDP socket. Mirrors
 /// the test-only rig that lives under <c>Opus.Engine.Net.Tests</c>, exposed here as
-/// public runtime code so the alpha host can offer a <c>soak</c> mode without
+/// public production code so the alpha host can offer a <c>soak</c> mode without
 /// referencing a test assembly.
 /// </summary>
 public sealed class AlphaLoopbackSoakRig : INetSoakRig

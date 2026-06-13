@@ -36,7 +36,7 @@ public enum RhiTextureUsage : ushort
     Staging = 1 << 4,
 }
 
-/// <summary>Pixel format. Subset of the full DXGI / Vulkan format set — runtime
+/// <summary>Pixel format. Subset of the full DXGI / Vulkan format set — production
 /// renderer adds more as passes need them. Phase R-0 ships the common 4: BGRA8_UNORM
 /// (swap chain), R16G16B16A16_FLOAT (HDR scene), D32_SFLOAT (depth), R8_UNORM
 /// (single-channel masks). The block-compressed trio (BC7 sRGB / BC7 linear / BC5) backs

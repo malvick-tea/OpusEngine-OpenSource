@@ -4,7 +4,7 @@ namespace Opus.Engine.AlphaStress.Memory;
 /// Engine-neutral memory snapshot factory. Wraps the <see cref="System.GC"/> + process
 /// APIs the stress harness uses to capture <see cref="MemoryProbeSample"/> between
 /// iterations. Exposed as an interface so tests can substitute a deterministic probe;
-/// runtime callers use <see cref="SystemMemoryProbe"/> for the live .NET / process
+/// production callers use <see cref="SystemMemoryProbe"/> for the live .NET / process
 /// counters.
 /// </summary>
 public interface IMemoryProbe

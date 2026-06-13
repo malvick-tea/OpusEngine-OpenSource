@@ -1,6 +1,6 @@
 namespace Opus.Engine.Renderer.Direct3D12.Scene;
 
-/// <summary>Runtime HLSL for the instanced <see cref="ForwardScenePass"/>. Forward metal-roughness
+/// <summary>Production HLSL for the instanced <see cref="ForwardScenePass"/>. Forward metal-roughness
 /// PBR pipeline: the VS reads its per-instance world matrix + tint from the instance
 /// <c>StructuredBuffer</c> (root SRV <c>t5</c>) at <c>InstanceOffset + SV_InstanceID</c>, transforms
 /// POS/NORMAL, and forwards world position, UV + the combined tint. The PS samples the five-map run

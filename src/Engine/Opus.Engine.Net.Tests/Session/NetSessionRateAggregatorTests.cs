@@ -55,7 +55,7 @@ public sealed class NetSessionRateAggregatorTests
 
         rate.PacketsReceivedPerSecond.Should().Be(
             0.0,
-            "a counter that goes backwards (impossible in runtime but defensive here) clamps to zero rate.");
+            "a counter that goes backwards (impossible in production but defensive here) clamps to zero rate.");
         rate.PacketsSentPerSecond.Should().Be(0.0);
         rate.BytesReceivedPerSecond.Should().Be(0.0);
         rate.BytesSentPerSecond.Should().Be(0.0);

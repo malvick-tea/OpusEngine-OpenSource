@@ -12,7 +12,7 @@ namespace Opus.App.OpusAlpha.Tests.Run;
 /// <summary>
 /// End-to-end coverage of the alpha host's failure-diagnostics path driven through the real
 /// <see cref="OpusAlphaWindowRunner"/>. Injection is raised before the host build, so these tests
-/// run headlessly (no GPU, no window) while still exercising the runtime classify / capture /
+/// run headlessly (no GPU, no window) while still exercising the production classify / capture /
 /// write pipeline a genuine crash would take.
 /// </summary>
 public sealed class OpusAlphaWindowRunnerInjectionTests : IDisposable

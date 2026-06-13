@@ -13,7 +13,7 @@ namespace Opus.App.OpusAlpha.Run.Consumer;
 /// would be a different <see cref="Type"/> than the host's and the reflection match would fail.
 /// </summary>
 /// <remarks>
-/// The host-first resolution order also keeps a consumer that ships its own uniquely-named
+/// The host-first resolution order also keeps a consumer that ships engine-named
 /// assemblies working: a name the host cannot supply falls through to the plugin's own directory
 /// (resolved from its <c>.deps.json</c> when present) and loads isolated here.
 /// </remarks>

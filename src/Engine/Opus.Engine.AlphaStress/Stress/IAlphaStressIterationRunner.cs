@@ -3,7 +3,7 @@ using Opus.Engine.AlphaHarness.Smoke;
 namespace Opus.Engine.AlphaStress.Stress;
 
 /// <summary>
-/// Engine-neutral seam the stress harness drives once per iteration. Runtime callers
+/// Engine-neutral seam the stress harness drives once per iteration. Production callers
 /// implement this against the M9 alpha host runner; tests implement it as a
 /// deterministic fake so the harness orchestrator can be exercised without standing up
 /// a real D3D12 device.

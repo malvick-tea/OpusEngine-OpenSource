@@ -4,43 +4,42 @@ using Xunit;
 
 namespace Opus.Engine.Ui.Direct3D12.Tests.Text;
 
-/// <summary>Headless checks for the Latin font source used by the D3D12 text atlas.</summary>
+/// <summary>Headless guarantees for the bundled Roboto face (ADR-0034). No GPU: the font is read
+/// from the assembly's manifest resource and rasterised on the CPU through stb_truetype, so these
+/// run everywhere and pin the deterministic-Cyrillic promise independent of any system font.</summary>
 public sealed class BundledFontsTests
 {
     [Fact]
-    public void Latin_face_opens_from_embedded_resource_or_system_fallback()
+    public void Latin_face_opens_from_the_embedded_resource()
     {
-        using var face = OpenLatinFace();
+        using var face = BundledFonts.TryOpenLatinFace();
 
-        face.Should().NotBeNull("the source-only tree relies on host font fallback when no font asset is embedded");
+        face.Should().NotBeNull("Roboto is embedded in the assembly and must always open");
     }
 
     [Theory]
-    [InlineData('A')]
+    [InlineData('A')]   // Basic Latin
     [InlineData('z')]
     [InlineData('0')]
     [InlineData(',')]
-    [InlineData('\u0414')]
-    [InlineData('\u044f')]
-    [InlineData('\u0416')]
-    public void Latin_face_carries_the_glyph(int codepoint)
+    [InlineData('Д')]   // Cyrillic Д — the deterministic-Cyrillic guarantee
+    [InlineData('я')]   // Cyrillic я
+    [InlineData('Ж')]   // Cyrillic Ж
+    public void Bundled_roboto_carries_the_glyph(int codepoint)
     {
-        using var face = OpenLatinFace();
+        using var face = BundledFonts.TryOpenLatinFace();
 
         face!.HasGlyph(codepoint).Should().BeTrue();
     }
 
     [Fact]
-    public void Latin_face_rasterizes_a_cyrillic_glyph_to_real_coverage()
+    public void Bundled_roboto_rasterizes_a_cyrillic_glyph_to_real_coverage()
     {
-        using var face = OpenLatinFace();
+        using var face = BundledFonts.TryOpenLatinFace();
 
-        var raster = face!.Rasterize('\u0414', pixelHeight: 32f);
+        var raster = face!.Rasterize('Д', pixelHeight: 32f);   // Cyrillic Д
 
         raster.HasRaster.Should().BeTrue("a Cyrillic capital De must produce real coverage pixels");
         raster.Advance.Should().BeGreaterThan(0f);
     }
-
-    private static StbGlyphSource? OpenLatinFace() =>
-        BundledFonts.TryOpenLatinFace() ?? SystemFontLoader.LoadFirstAvailable(FontFaceCandidates.Latin);
 }

@@ -38,7 +38,7 @@ public sealed record NetSoakProfile(
 
     /// <summary>Default test-scale profile: a 4-peer cohort with 64 packets each,
     /// 256-byte bodies, server echo enabled, sized so it completes inside ~2 seconds on
-    /// loopback hardware. Runtime soak runs should construct a larger profile that
+    /// loopback hardware. Production soak runs should construct a larger profile that
     /// matches the 20-player target.</summary>
     public static NetSoakProfile Default { get; } = new(
         PeerCount: 4,

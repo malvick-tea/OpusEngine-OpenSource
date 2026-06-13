@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Net</RootNamespace>
     <AssemblyName>Opus.Net</AssemblyName>
-    <Description>Network transport contracts + the in-process loopback implementation. Foundation-tier — knows nothing about Sim payloads (ClientInput / Snapshot bytes flow through opaquely). Concrete UDP / ENet impls land in sibling assemblies. The first brick of the local test multiplayer build.</Description>
+    <Description>Network transport contracts + the in-process loopback implementation. Foundation-tier — knows nothing about Sim payloads (ClientInput / Snapshot bytes flow through opaquely). Concrete UDP / ENet impls land in sibling assemblies. The first brick of the closed-alpha multiplayer build.</Description>
   </PropertyGroup>
 
   <ItemGroup Label="Foundation only — transport is payload-agnostic">

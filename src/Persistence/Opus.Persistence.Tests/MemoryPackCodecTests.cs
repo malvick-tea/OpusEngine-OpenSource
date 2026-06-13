@@ -15,7 +15,7 @@ public sealed class MemoryPackCodecTests
     public void Round_trips_a_simple_record()
     {
         IBinaryCodec codec = new MemoryPackCodec();
-        var original = new TestPayload(42, "sample");
+        var original = new TestPayload(42, "ankou");
 
         var bytes = codec.Serialize(original);
         bytes.Should().NotBeNullOrEmpty();

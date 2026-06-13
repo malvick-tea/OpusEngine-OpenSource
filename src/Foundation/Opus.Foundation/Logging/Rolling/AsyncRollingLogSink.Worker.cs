@@ -5,7 +5,7 @@ namespace Opus.Foundation;
 
 /// <summary>
 /// Worker-thread half of <see cref="AsyncRollingLogSink"/>. Kept in a separate file so
-/// the public producer-side surface in the main file stays inside the runtime source
+/// the public producer-side surface in the main file stays inside the production source
 /// cap and so the worker / fsync responsibilities read as one focused unit.
 /// </summary>
 public sealed partial class AsyncRollingLogSink

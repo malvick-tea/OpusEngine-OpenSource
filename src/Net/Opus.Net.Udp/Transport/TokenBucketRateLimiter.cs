@@ -11,7 +11,7 @@ namespace Opus.Net.Udp.Transport;
 /// <remarks>
 /// <para>
 /// Deterministic by construction: the caller supplies the monotonic timestamp
-/// (<see cref="Environment.TickCount64"/> in runtime), so the type carries no wall clock and
+/// (<see cref="Environment.TickCount64"/> in production), so the type carries no wall clock and
 /// unit tests drive refill with explicit ticks instead of sleeping. The engine rule against
 /// wall-clock time inside deterministic code is honoured: time enters only as a parameter.
 /// </para>

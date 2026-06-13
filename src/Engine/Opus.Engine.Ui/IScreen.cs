@@ -5,7 +5,7 @@ namespace Opus.Engine.Ui;
 
 /// <summary>
 /// One stage of UI: splash, main menu, garage, settings, etc. Screens are stacked by
-/// <c>the game's screen stack</c>; only the top one renders + receives
+/// a host-owned screen stack; only the top one renders + receives
 /// updates. Lifecycle: <see cref="OnEnter"/> → <see cref="Update"/>* → <see cref="Render"/>*
 /// → <see cref="OnExit"/>.
 /// </summary>

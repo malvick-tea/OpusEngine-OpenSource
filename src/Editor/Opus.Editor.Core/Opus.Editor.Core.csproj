@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Editor.Core</RootNamespace>
+    <AssemblyName>Opus.Editor.Core</AssemblyName>
+    <Description>Headless authoring core for the Opus Editor (UI Edition): the engine-neutral scene document, the undo / redo command stack, and the real-time pseudo-code mirror. No GPU, no host IO.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Persistence\Opus.Persistence\Opus.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

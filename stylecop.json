@@ -2,8 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
   "settings": {
     "documentationRules": {
-      "companyName": "Opus",
-      "copyrightText": "// Copyright (c) Opus contributors.",
+      "companyName": "Opus Engine",
+      "copyrightText": "// Copyright (c) Opus Engine contributors.",
       "documentInternalElements": false,
       "documentExposedElements": false,
       "documentInterfaces": false

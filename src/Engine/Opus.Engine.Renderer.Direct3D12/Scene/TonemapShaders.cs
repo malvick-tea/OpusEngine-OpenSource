@@ -1,6 +1,6 @@
 namespace Opus.Engine.Renderer.Direct3D12.Scene;
 
-/// <summary>Runtime HLSL for <see cref="TonemapPass"/>: a bufferless fullscreen
+/// <summary>Production HLSL for <see cref="TonemapPass"/>: a bufferless fullscreen
 /// triangle that samples the scene's HDR target, applies Narkowicz ACES filmic curve,
 /// gamma-encodes the result (2.2), and writes to the swap-chain backbuffer.
 /// <para>

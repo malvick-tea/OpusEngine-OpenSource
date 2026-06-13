@@ -4,7 +4,7 @@ namespace Opus.Engine.AlphaStress.Network;
 
 /// <summary>
 /// Engine-neutral seam the stress harness drives once per iteration to exercise the
-/// fault-injection network layer. Runtime callers implement this against the
+/// fault-injection network layer. Production callers implement this against the
 /// loopback hub plus <see cref="Opus.Engine.Net.Transport.LatencyLossWrappingTransport"/>
 /// (see <see cref="LoopbackFaultInjectionNetworkProbe"/>); tests implement it as a
 /// deterministic fake so the harness can be exercised without standing up a real soak

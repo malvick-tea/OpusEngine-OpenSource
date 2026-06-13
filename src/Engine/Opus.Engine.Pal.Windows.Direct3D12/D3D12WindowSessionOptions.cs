@@ -14,7 +14,7 @@ public readonly record struct D3D12WindowSessionOptions(
     WindowOptions Window,
     bool EnableDebugLayer)
 {
-    /// <summary>Default windowed 1280×720, no debug layer, no vsync — the runtime
+    /// <summary>Default windowed 1280×720, no debug layer, no vsync — the production
     /// bring-up used by Garage.Demo. Smoke tests override the debug-layer flag.
     /// <paramref name="resizable"/> defaults to <c>false</c> to preserve fixed-size callers
     /// (the demo and deterministic smokes); the live alpha host passes <c>true</c>.</summary>

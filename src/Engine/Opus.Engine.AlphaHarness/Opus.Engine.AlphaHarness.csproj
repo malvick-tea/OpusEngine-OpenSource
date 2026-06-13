@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.AlphaHarness</RootNamespace>
     <AssemblyName>Opus.Engine.AlphaHarness</AssemblyName>
-    <Description>Engine-neutral M9 alpha-host harness: smoke profile/outcome/report writer, alpha package checklist on top of Opus.Content.Packaging, known-good machine profile capture + comparison, and large/small alpha scene scale presets. Consumed by the runtime D3D12 host through plain options; does not depend on D3D12 itself.</Description>
+    <Description>Engine-neutral M9 alpha-host harness: smoke profile/outcome/report writer, alpha package checklist on top of Opus.Content.Packaging, known-good machine profile capture + comparison, and large/small alpha scene scale presets. Consumed by the production D3D12 host through plain options; does not depend on D3D12 itself.</Description>
   </PropertyGroup>
 
   <ItemGroup>

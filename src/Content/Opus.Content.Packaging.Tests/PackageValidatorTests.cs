@@ -3,6 +3,7 @@ using System.Text;
 using FluentAssertions;
 using Opus.Content.Packaging.Diagnostics;
 using Opus.Content.Packaging.Manifest;
+using Opus.Content.Packaging.Paths;
 using Opus.Content.Packaging.Tests.Fixtures;
 using Opus.Content.Packaging.Validation;
 using Xunit;
@@ -304,7 +305,7 @@ public sealed class PackageValidatorTests
             .WriteManifest();
         package.ReplaceFile(
             "localisation/ru.json",
-            Encoding.UTF8.GetBytes("""{"sample.title":"\u041e\u043f\u0443\u0441","sample.extra":"Extra"}"""));
+            Encoding.UTF8.GetBytes("""{"sample.title":"Опус","sample.extra":"Extra"}"""));
 
         var result = Validate(package.Root);
 
@@ -321,7 +322,7 @@ public sealed class PackageValidatorTests
             .WithGoldenFiles()
             .WriteManifest();
         var withBom = Encoding.UTF8.GetPreamble()
-            .Concat(Encoding.UTF8.GetBytes("""{"sample.title":"\u041e\u043f\u0443\u0441","sample.ok":"OK"}"""))
+            .Concat(Encoding.UTF8.GetBytes("""{"sample.title":"Опус","sample.ok":"OK"}"""))
             .ToArray();
         package.ReplaceFile("localisation/ru.json", withBom);
 
@@ -383,6 +384,49 @@ public sealed class PackageValidatorTests
         var manifest = result.Unwrap();
         manifest.ExtensionData.Should().NotBeNull();
         manifest.ExtensionData!.Should().ContainKey("futureField");
+    }
+
+    [Fact]
+    public void Streaming_hash_matches_in_memory_hash()
+    {
+        var payload = Enumerable.Range(0, 200_000).Select(i => (byte)(i & 0xFF)).ToArray();
+        var path = Path.Combine(Path.GetTempPath(), $"opus-hash-{Guid.NewGuid():N}.bin");
+        File.WriteAllBytes(path, payload);
+        try
+        {
+            var inMemory = PackageFileHash.ComputeSha256Hex(payload);
+            var streamed = PackageFileHash.ComputeSha256HexFile(path);
+
+            streamed.Should().Be(inMemory);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Theory]
+    [InlineData("name.txt", true, null)]
+    [InlineData("dir/inner.txt", true, null)]
+    [InlineData("dir\\inner.txt", true, "dir/inner.txt")]
+    [InlineData("", false, null)]
+    [InlineData("  ", false, null)]
+    [InlineData("/abs.txt", false, null)]
+    [InlineData("../escape.txt", false, null)]
+    [InlineData("a/./b.txt", false, null)]
+    [InlineData("a/b\0.txt", false, null)]
+    public void PackageRelativePath_accepts_safe_inputs_and_rejects_unsafe_ones(
+        string input,
+        bool expectedValid,
+        string? expectedNormalised)
+    {
+        var ok = PackageRelativePath.TryCreate(input, out var path, out _);
+
+        ok.Should().Be(expectedValid);
+        if (expectedValid)
+        {
+            path.Value.Should().Be(expectedNormalised ?? input);
+        }
     }
 
     private static PackageValidationResult Validate(string root) =>

@@ -138,7 +138,8 @@ public sealed class PackageValidatorCommandTests
                 stderr);
 
             exitCode.Should().Be(PackageValidatorExitCodes.ValidationFailed);
-            stdout.ToString().Should().Contain("Package manifest");
+            stdout.ToString().Should().Contain("Package validation failed.");
+            stdout.ToString().Should().Contain("OPKG-MAN-001");
         }
         finally
         {
@@ -161,7 +162,10 @@ public sealed class PackageValidatorCommandTests
                 stderr);
 
             exitCode.Should().Be(PackageValidatorExitCodes.ValidationFailed);
-            stdout.ToString().Should().Contain("Package manifest");
+            stdout.ToString().Should().Contain("\"valid\": false");
+            stdout.ToString().Should().Contain("\"code\": \"OPKG-MAN-001\"");
+            stdout.ToString().Should().Contain("\"arguments\":");
+            stdout.ToString().Should().Contain("\"manifest\":");
         }
         finally
         {
@@ -170,7 +174,7 @@ public sealed class PackageValidatorCommandTests
     }
 
     [Fact]
-    public void Run_uses_invariant_messages_when_locale_catalog_is_not_available()
+    public void Run_uses_requested_locale_when_catalog_is_available()
     {
         var directory = Directory.CreateTempSubdirectory("opus-package-cli-ru-");
         try
@@ -184,7 +188,7 @@ public sealed class PackageValidatorCommandTests
                 stderr);
 
             exitCode.Should().Be(PackageValidatorExitCodes.ValidationFailed);
-            stdout.ToString().Should().Contain("Package manifest");
+            stdout.ToString().Should().Contain("Манифест пакета");
         }
         finally
         {
@@ -206,6 +210,50 @@ public sealed class PackageValidatorCommandTests
 
         exitCode.Should().Be(PackageValidatorExitCodes.ValidationFailed);
         stdout.ToString().Should().Contain("OPKG-PKG-001");
+    }
+
+    [Theory]
+    [InlineData("lots")]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("2147483648")]
+    public void Run_rejects_an_out_of_range_max_deep_validation_bytes(string value)
+    {
+        using var stdout = new StringWriter();
+        using var stderr = new StringWriter();
+
+        var exitCode = PackageValidatorCommand.Run(
+            new[] { "validate", ".", "--max-deep-validation-bytes", value },
+            stdout,
+            stderr);
+
+        exitCode.Should().Be(PackageValidatorExitCodes.InvalidArguments);
+        stderr.ToString().Should().Contain("Unsupported --max-deep-validation-bytes");
+    }
+
+    [Fact]
+    public void Run_skips_deep_validation_above_the_configured_budget_but_still_succeeds()
+    {
+        var directory = CreateGeneratedPackageDirectory();
+        try
+        {
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+
+            var exitCode = PackageValidatorCommand.Run(
+                new[] { "validate", directory.FullName, "--max-deep-validation-bytes", "1" },
+                stdout,
+                stderr);
+
+            var because = "integrity is streamed, so a file above the budget is a warning, not an error; output: "
+                + stdout.ToString();
+            exitCode.Should().Be(PackageValidatorExitCodes.Success, because);
+            stdout.ToString().Should().Contain("OPKG-FILE-007");
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
     }
 
     [Fact]

@@ -15,6 +15,7 @@ internal static class SdlKeyMap
         KeyCode.KSpace => Key.Space,
         KeyCode.KTab => Key.Tab,
         KeyCode.KBackspace => Key.Backspace,
+        KeyCode.KDelete => Key.Delete,
 
         KeyCode.KLeft => Key.Left,
         KeyCode.KRight => Key.Right,
@@ -73,6 +74,11 @@ internal static class SdlKeyMap
         KeyCode.K9 => Key.D9,
         KeyCode.KPeriod => Key.Period,
         KeyCode.KMinus => Key.Hyphen,
+
+        KeyCode.KLctrl => Key.LeftControl,
+        KeyCode.KRctrl => Key.RightControl,
+        KeyCode.KLshift => Key.LeftShift,
+        KeyCode.KRshift => Key.RightShift,
 
         _ => Key.None,
     };

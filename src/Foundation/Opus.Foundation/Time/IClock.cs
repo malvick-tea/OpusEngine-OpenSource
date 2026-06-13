@@ -5,7 +5,7 @@ namespace Opus.Foundation;
 /// <summary>Wall-clock abstraction. <see cref="GameTime"/> covers deterministic sim
 /// time; this is for everything outside the sim — save timestamps, telemetry
 /// envelopes, log envelopes, replay headers. Implementations live in the host
-/// (<see cref="SystemClock"/> for runtime) and tests so unit specs can pin a
+/// (<see cref="SystemClock"/> for production) and tests so unit specs can pin a
 /// deterministic <see cref="long"/> instead of racing real time.</summary>
 public interface IClock
 {
@@ -15,7 +15,7 @@ public interface IClock
     long UtcUnixMilliseconds();
 }
 
-/// <summary>Runtime <see cref="IClock"/> backed by <see cref="DateTimeOffset.UtcNow"/>.
+/// <summary>Production <see cref="IClock"/> backed by <see cref="DateTimeOffset.UtcNow"/>.
 /// Single shared instance is fine — the cmdlet has no state.</summary>
 public sealed class SystemClock : IClock
 {

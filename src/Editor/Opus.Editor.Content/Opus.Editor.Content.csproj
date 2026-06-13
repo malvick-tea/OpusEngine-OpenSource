@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Editor.Content</RootNamespace>
+    <AssemblyName>Opus.Editor.Content</AssemblyName>
+    <Description>Editor content-import surface for the Opus 0.1 UI Edition: inspects imported glTF/GLB models into engine-neutral summaries (meshes, primitives, vertices, triangles, materials, nodes, bounds). Pure over loaded bytes; file IO stays in the host.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Content\Opus.Content\Opus.Content.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Core\Opus.Editor.Core.csproj" />
+  </ItemGroup>
+
+</Project>

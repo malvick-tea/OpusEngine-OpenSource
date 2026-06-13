@@ -16,7 +16,7 @@ namespace Opus.Engine.Pal.Windows.Direct3D12;
 ///
 /// <para>vsync uses sync-interval 0 (no wait) — matches the demo and avoids stalling the
 /// UI thread on the OS compositor while early development iteration is the priority.
-/// Runtime toggle moves into <see cref="D3D12WindowSessionOptions"/> when the
+/// Production toggle moves into <see cref="D3D12WindowSessionOptions"/> when the
 /// Settings → Video tab gets wired through (post-Phase-B).</para>
 /// </summary>
 public sealed unsafe class D3D12UiFrameLoop : IDisposable
@@ -42,7 +42,7 @@ public sealed unsafe class D3D12UiFrameLoop : IDisposable
     public D3D12CommandList CommandList => _commandList;
 
     /// <summary>True between matched <see cref="BeginFrame"/> / <see cref="EndFrame"/>
-    /// calls. Diagnostic surface — runtime code should bracket frames with the
+    /// calls. Diagnostic surface — production code should bracket frames with the
     /// methods directly rather than poll this.</summary>
     public bool IsFrameOpen => _inFrame;
 

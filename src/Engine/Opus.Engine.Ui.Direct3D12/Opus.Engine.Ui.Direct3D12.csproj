@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.Ui.Direct3D12</RootNamespace>
     <AssemblyName>Opus.Engine.Ui.Direct3D12</AssemblyName>
-    <Description>Direct3D 12 backend for the Engine.Ui draw contracts. Implements IDrawSurface via a batched 2D quad pipeline (rects / lines / circles / glyph runs) on top of Engine.Rhi.D3D12, with a bilingual stb_truetype glyph atlas. This is the Opus 0.1 runtime UI path. Windows-only.</Description>
+    <Description>Direct3D 12 backend for the Engine.Ui draw contracts. Implements IDrawSurface via a batched 2D quad pipeline (rects / lines / circles / glyph runs) on top of Engine.Rhi.D3D12, with a bilingual stb_truetype glyph atlas. This is the Opus 0.1 production UI path. Windows-only.</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -17,6 +17,16 @@
 
   <ItemGroup>
     <PackageReference Include="StbTrueTypeSharp" />
+  </ItemGroup>
+
+  <!-- Roboto (Apache-2.0) is embedded into the assembly so Latin + Cyrillic HUD / overlay text
+       bakes from one deterministic face on every machine (ADR-0034). The explicit LogicalName
+       pins the manifest-resource name BundledFonts reads. Licence + attribution travel in-tree
+       under Assets/Fonts/ (Roboto-LICENSE.txt, Roboto-ATTRIBUTION.md). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Fonts\Roboto-Regular.ttf">
+      <LogicalName>Opus.Engine.Ui.Direct3D12.Assets.Fonts.Roboto-Regular.ttf</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

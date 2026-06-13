@@ -10,7 +10,7 @@ public sealed class GunRecoilTests
     [Fact]
     public void Projectile_only_recoil_is_the_shot_momentum()
     {
-        // 7.5 cm gun class shot: 6.8 kg at 750 m/s.
+        // 7.5 cm KwK 40 class shot: 6.8 kg at 750 m/s.
         GunRecoil.FreeRecoilMomentum(6.8f, 750f).Should().BeApproximately(6.8f * 750f, 0.001f);
     }
 

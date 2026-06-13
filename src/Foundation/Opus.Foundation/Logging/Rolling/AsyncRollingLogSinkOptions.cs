@@ -42,7 +42,7 @@ public sealed record AsyncRollingLogSinkOptions(
     /// <summary>Default OS thread name for the writer worker. Visible in dumps.</summary>
     public const string DefaultWorkerThreadName = "Opus.AsyncRollingLog";
 
-    /// <summary>Runtime defaults aimed at alpha tester hosts.</summary>
+    /// <summary>Production defaults aimed at alpha tester hosts.</summary>
     public static AsyncRollingLogSinkOptions Default => new(
         QueueCapacity: DefaultQueueCapacity,
         BackpressurePolicy: RollingLogBackpressurePolicy.DropOldest,

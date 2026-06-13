@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Opus.Engine.Ui</RootNamespace>
     <AssemblyName>Opus.Engine.Ui</AssemblyName>
-    <Description>UI primitives: backend-agnostic draw and input contracts. Opus 0.1 runtime UI is implemented by Engine.Ui.Direct3D12; this assembly stays renderer-neutral.</Description>
+    <Description>UI primitives: backend-agnostic draw and input contracts. Opus 0.1 production UI is implemented by Engine.Ui.Direct3D12; this assembly stays renderer-neutral.</Description>
   </PropertyGroup>
 
   <ItemGroup>

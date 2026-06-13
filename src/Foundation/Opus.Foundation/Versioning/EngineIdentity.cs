@@ -16,11 +16,11 @@ public sealed record EngineIdentity(
     private const string CurrentReleaseChannel = "alpha";
     private const string CurrentAssemblyNamePrefix = "Opus.*";
     private const string CurrentAssemblyCompatibility =
-        "Assembly names were normalised to the canonical Opus.* namespace (ADR-0036).";
+        "Opus.* assembly names are the canonical public assembly identity for Opus 0.1.";
 
     /// <summary>
-    /// Lead release point: the canonical Opus.* assembly-name normalisation landed via
-    /// ADR-0036. Update this when Opus 0.1 leaves alpha.
+    /// Lead release point for the public Opus 0.1 alpha identity. Update this when
+    /// Opus 0.1 leaves alpha.
     /// </summary>
     public static EngineIdentity Current { get; } = new(
         CurrentProductName,

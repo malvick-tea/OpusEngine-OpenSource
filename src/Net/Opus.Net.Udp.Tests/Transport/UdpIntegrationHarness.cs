@@ -38,7 +38,7 @@ internal sealed class UdpIntegrationHarness : IDisposable
 
     /// <summary>Test-tuned timing: snappy heartbeats so the dead-peer path fires inside a
     /// second, but not so tight that GC / scheduler hiccups under <c>dotnet test</c>
-    /// flake. Runtime options sit ~10× looser (<see cref="UdpTransportOptions.Default"/>).</summary>
+    /// flake. Production options sit ~10× looser (<see cref="UdpTransportOptions.Default"/>).</summary>
     public static UdpTransportOptions FastOptions() => new()
     {
         HeartbeatInterval = TimeSpan.FromMilliseconds(100),

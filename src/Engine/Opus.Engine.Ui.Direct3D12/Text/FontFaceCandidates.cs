@@ -7,7 +7,13 @@ namespace Opus.Engine.Ui.Direct3D12.Text;
 /// kana + kanji that face does not cover.
 /// </summary>
 /// <remarks>
-/// These are deployment facts about the host OS, not tunable values. They live here as`r`n/// named constants rather than scattered string literals. The Latin / Cyrillic band first`r`n/// tries an optional embedded face (<see cref="BundledFonts"/>), then this <see cref="Latin"/>`r`n/// list. The <see cref="Cjk"/> list is the primary CJK source.`r`n/// </remarks>
+/// These are deployment facts about the host OS, not tunable values — they live here as
+/// named constants rather than scattered string literals. Since ADR-0034 the Latin / Cyrillic
+/// band bakes from the bundled Roboto face (<see cref="BundledFonts"/>) for deterministic
+/// cross-machine rendering; this <see cref="Latin"/> list is now only the fallback the atlas
+/// reaches for if the embedded Roboto resource is ever stripped from the binary. The
+/// <see cref="Cjk"/> list is still the primary CJK source.
+/// </remarks>
 internal static class FontFaceCandidates
 {
     /// <summary>Latin / Latin-1 / Cyrillic / punctuation faces — Segoe UI is the narrow

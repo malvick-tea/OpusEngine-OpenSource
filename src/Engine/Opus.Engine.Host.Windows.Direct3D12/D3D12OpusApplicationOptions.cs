@@ -10,7 +10,7 @@ using Opus.Foundation;
 namespace Opus.Engine.Host.Windows.Direct3D12;
 
 /// <summary>
-/// Construction-time configuration for the runtime D3D12 host application.
+/// Construction-time configuration for the production D3D12 host application.
 /// </summary>
 /// <param name="WindowTitle">
 /// Title bar text for the live D3D12 window. Defaults to the Opus identity line so a

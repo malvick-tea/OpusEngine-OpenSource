@@ -1,6 +1,6 @@
 namespace Opus.Engine.Ui.Direct3D12;
 
-/// <summary>Runtime HLSL for the 2D UI sprite pipeline behind <see cref="D3D12DrawSurface"/>.
+/// <summary>Production HLSL for the 2D UI sprite pipeline behind <see cref="D3D12DrawSurface"/>.
 /// One PSO drives every <c>IDrawSurface</c> primitive — solid rects, lines, glyph runs sample
 /// the R8 coverage atlas; filled circles and rings are shaded analytically so curvature
 /// stays crisp at any radius.

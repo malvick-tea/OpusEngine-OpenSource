@@ -263,7 +263,7 @@ public sealed unsafe class D3D12SwapChain : IDisposable
             baseChain->Release();
         }
 
-        // Disable Alt-Enter fullscreen toggle — runtime engines own the fullscreen
+        // Disable Alt-Enter fullscreen toggle — production engines own the fullscreen
         // mode switch through their own settings UI, not the OS shortcut.
         SilkMarshal.ThrowHResult(factory->MakeWindowAssociation(hwnd, 1u << 1));
 

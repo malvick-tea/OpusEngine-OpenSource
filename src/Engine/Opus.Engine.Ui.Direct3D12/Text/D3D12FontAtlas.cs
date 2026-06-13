@@ -66,7 +66,9 @@ public sealed unsafe class D3D12FontAtlas : IDisposable
     internal GpuDescriptorHandle SrvGpu => _srvGpu;
 
     /// <summary>End-to-end bake + upload. Walks <paramref name="localizedText"/> for the
-    /// codepoints to cover, opens a Latin face and a host CJK face, bakes them onto an <paramref name="atlasSize"/>² texture at
+    /// codepoints to cover, opens the bundled Roboto Latin / Cyrillic face (deterministic across
+    /// machines, ADR-0034; system faces are only a fallback if the embedded resource is stripped)
+    /// plus the host's CJK system face, bakes them onto an <paramref name="atlasSize"/>² texture at
     /// <paramref name="pixelHeight"/>, uploads. Throws <see cref="InvalidOperationException"/> when
     /// no Latin or CJK face is available, or <see cref="GlyphAtlasOverflowException"/> when the
     /// glyph set does not fit.</summary>
@@ -82,7 +84,7 @@ public sealed unsafe class D3D12FontAtlas : IDisposable
         using var latin = BundledFonts.TryOpenLatinFace()
             ?? SystemFontLoader.LoadFirstAvailable(FontFaceCandidates.Latin)
             ?? throw new InvalidOperationException(
-                "No Latin font face available: no embedded resource or system fallback opened.");
+                "No Latin font face available: bundled Roboto resource missing and no system fallback opened.");
         using var cjk = SystemFontLoader.LoadFirstAvailable(FontFaceCandidates.Cjk)
             ?? throw new InvalidOperationException("No CJK font face available on this host.");
 

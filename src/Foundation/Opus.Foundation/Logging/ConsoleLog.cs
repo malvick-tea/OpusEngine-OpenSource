@@ -11,7 +11,7 @@ namespace Opus.Foundation;
 /// tests, and developer-machine debugging without dragging Serilog or
 /// <c>Microsoft.Extensions.Logging</c> into the Foundation layer.
 ///
-/// Runtime hosts that need rolling files, structured JSON, or remote sinks compose a
+/// Production hosts that need rolling files, structured JSON, or remote sinks compose a
 /// full logger of their choice and adapt it to <see cref="ILog"/>. ConsoleLog is the
 /// tiny zero-config fallback so a host can start logging without registering anything.
 /// </summary>

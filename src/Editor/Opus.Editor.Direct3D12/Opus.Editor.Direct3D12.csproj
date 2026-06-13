@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Editor.Direct3D12</RootNamespace>
+    <AssemblyName>Opus.Editor.Direct3D12</AssemblyName>
+    <Description>Direct3D 12 render seam for the Opus 0.1 UI Edition editor window: composes the UI frame loop, glyph atlas, and 2D draw surface over a live window session, and renders one EditorFrameView per frame through the existing draw surface. The 3D scene is drawn as projected world-space lines on the 2D surface, so there is no offscreen target, forward renderer, or new pipeline state (one render path, ADR-0028 / ADR-0033). Windows-only (D3D12).</Description>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Ui\Opus.Engine.Ui.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Ui.Direct3D12\Opus.Engine.Ui.Direct3D12.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Pal.Windows.Direct3D12\Opus.Engine.Pal.Windows.Direct3D12.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Rhi.D3D12\Opus.Engine.Rhi.D3D12.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Core\Opus.Editor.Core.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Ui\Opus.Editor.Ui.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.Direct3D12" />
+  </ItemGroup>
+
+</Project>

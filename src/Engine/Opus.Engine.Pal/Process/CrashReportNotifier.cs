@@ -28,7 +28,7 @@ public sealed class CrashReportNotifier
 
     /// <summary>The user choice that came back from the most recent
     /// <see cref="Handle"/> call. Null until the first crash. Visible primarily for
-    /// tests; runtime code reacts to the launcher-restart side effect.</summary>
+    /// tests; production code reacts to the launcher-restart side effect.</summary>
     public CrashReportUserChoice? LastChoice { get; private set; }
 
     /// <summary>Wires this notifier to <paramref name="crashHandler"/>'s

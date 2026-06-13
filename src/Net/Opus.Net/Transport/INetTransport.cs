@@ -14,7 +14,7 @@ namespace Opus.Net.Transport;
 /// <para>
 /// Two implementations land first: the in-process <c>LoopbackTransport</c> (this phase)
 /// for tests and single-process dev, and a real UDP / ENet transport in a later phase.
-/// Both must obey the contract below so a `a game server` host can swap transports
+/// Both must obey the contract below so an Opus server host can swap transports
 /// without touching the room / lobby / match-session code on top.
 /// </para>
 /// <para>

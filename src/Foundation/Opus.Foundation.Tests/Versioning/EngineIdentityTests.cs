@@ -26,6 +26,6 @@ public sealed class EngineIdentityTests
 
         identity.AssemblyNamePrefix.Should().Be("Opus.*");
         identity.AssemblyCompatibility.Should().Contain("Opus");
-        identity.AssemblyCompatibility.Should().Contain("normalised");
+        identity.AssemblyCompatibility.Should().Contain("canonical public");
     }
 }

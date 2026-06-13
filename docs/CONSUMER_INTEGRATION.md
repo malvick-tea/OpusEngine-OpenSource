@@ -1,28 +1,27 @@
 # Consumer Integration
 
-Consumer integration is the Opus boundary for an external application module.
-The alpha host can load a consumer assembly, discover its factory, construct an
-integration object, and ask it for lifecycle hooks, scene data, assets, and
-telemetry.
+Consumer integration is the boundary between the Opus alpha host and an external
+application module. The host owns windowing, timing, diagnostics, rendering, and
+shutdown. A consumer assembly can provide lifecycle hooks, scene frames, asset
+resolution, and telemetry through engine contracts.
 
-## Why This Boundary Exists
-
-The engine should be able to run its host and renderer checks without hardcoding
-one game. A consumer module lets an application provide data and behavior through
-contracts while the host keeps control of windowing, timing, diagnostics, and
-rendering.
+This keeps the engine runnable without hardcoding one game or one application.
 
 ## Main Projects
 
 ```text
 src/Engine/Opus.Engine.Consumer
 src/Apps/Opus.App.OpusAlpha
+src/Engine/Opus.Engine.Host.Windows.Direct3D12
 ```
 
 `Opus.Engine.Consumer` defines the contracts.
 
-`Opus.App.OpusAlpha` loads an external assembly and drives it through the alpha
-host.
+`Opus.App.OpusAlpha` loads an external assembly and constructs the integration
+facade.
+
+`Opus.Engine.Host.Windows.Direct3D12` adapts consumer scene, asset, lifecycle,
+and telemetry data into the live D3D12 host.
 
 ## Contracts
 
@@ -48,15 +47,15 @@ Important types:
 - `IConsumerTelemetryProvider`
 - `ConsumerTelemetrySnapshot`
 
-A consumer does not receive raw D3D12 ownership. It describes what it wants the
-host to render or load through engine contracts.
+A consumer does not receive ownership of raw D3D12 resources. It describes data;
+the host decides how to adapt that data to the current backend.
 
 ## Load Flow
 
-The alpha host accepts:
+Run the alpha host with a consumer assembly:
 
 ```powershell
-dotnet run --project .\src\Apps\Opus.App.OpusAlpha\Opus.App.OpusAlpha.csproj -- --consumer <path-to-assembly>
+dotnet run -c Release --project .\src\Apps\Opus.App.OpusAlpha\Opus.App.OpusAlpha.csproj -- --consumer <path-to-assembly>
 ```
 
 Load flow:
@@ -69,63 +68,95 @@ ConsumerIntegrationAssemblyLoader
   -> get loadable types
   -> ConsumerIntegrationFactoryResolver
   -> create factory
-  -> create ConsumerIntegration
-  -> validate contract
+  -> factory.CreateIntegration()
+  -> validate ConsumerIntegration
 ```
 
-Boundary failures return `ConsumerIntegrationLoadResult` rather than escaping as
-raw exceptions in normal cases.
+Common boundary failures return `ConsumerIntegrationLoadResult` instead of
+escaping as raw exceptions.
 
 ## Factory Rules
 
-A consumer assembly should expose one suitable factory implementing
+A consumer assembly should expose exactly one public, concrete implementation of
 `IConsumerIntegrationFactory`.
 
-The factory should:
+The implementation must:
 
-- be discoverable through reflection;
-- construct quickly;
-- avoid broad side effects in its constructor;
-- return a complete `ConsumerIntegration`;
-- report missing application resources through the integration boundary rather
-  than through host-specific assumptions.
+- be public;
+- be non-abstract;
+- have a public parameterless constructor;
+- return a non-null `ConsumerIntegration` from `CreateIntegration()`.
 
-## Integration Object
+Zero factories, multiple factories, constructor failures, and null integrations
+are reported as load failures.
 
-`ConsumerIntegration` groups optional and required consumer pieces. Use it to
-provide:
+## Integration Facade
 
-- lifecycle hooks;
-- scene source;
-- asset catalog;
-- telemetry provider.
+`ConsumerIntegration` groups the optional consumer parts:
 
-Keep each part focused. Scene generation should not parse command-line options.
-Telemetry should not own renderer resources. Asset lookup should not mutate
-simulation state.
+- `IConsumerSceneSource?`
+- `IConsumerAssetCatalog?`
+- `IConsumerTelemetryProvider?`
+- `IReadOnlyList<IConsumerLifecycleHook>`
+
+Keep each part focused:
+
+- scene sources describe frames;
+- asset catalogs resolve asset ids;
+- telemetry providers expose cheap snapshots;
+- lifecycle hooks react to host start/frame/stop events.
+
+Do not use one contract to smuggle another responsibility. Scene generation
+should not parse CLI options. Telemetry should not block on IO. Asset lookup
+should not mutate simulation state.
+
+## Minimal Factory
+
+```csharp
+using Opus.Engine.Consumer.Integration;
+using Opus.Engine.Consumer.Lifecycle;
+
+public sealed class SampleConsumerFactory : IConsumerIntegrationFactory
+{
+    public ConsumerIntegration CreateIntegration()
+    {
+        return new ConsumerIntegration(
+            sceneSource: new SampleSceneSource(),
+            assetCatalog: new SampleAssets(),
+            telemetryProvider: new SampleTelemetry(),
+            lifecycleHooks: new IConsumerLifecycleHook[]
+            {
+                new SampleLifecycle(),
+            });
+    }
+}
+```
+
+Use the constructor shape from the current source. If `ConsumerIntegration`
+changes, update factories, fixture tests, and this document together.
 
 ## Lifecycle Hooks
 
-Lifecycle hooks let the consumer react to host events.
+Lifecycle hooks let a consumer observe host events:
 
-Common uses:
+- host started;
+- per-frame callback;
+- host stopping.
 
-- initialize consumer-side state after host services are ready;
-- update per-frame state;
-- clean up consumer-owned resources before shutdown.
-
-Do not use lifecycle hooks to take over the host loop. The host owns timing.
+Use them for consumer-owned state. Do not use them to take over the host loop;
+`OpusHost` owns timing.
 
 ## Scene Source
 
 `IConsumerSceneSource` provides scene frames to the host.
 
-Scene frame data includes:
+Scene data can include:
 
-- camera;
+- camera data;
 - lighting;
 - draw items;
-- viewport-related values.
+- asset ids or paths;
+- per-frame transform/tint data.
 
 The scene source should describe the frame. It should not record D3D12 commands.
 
@@ -133,47 +164,20 @@ The scene source should describe the frame. It should not record D3D12 commands.
 
 `IConsumerAssetCatalog` resolves asset requests.
 
-Use stable asset IDs. Return clear failures for missing assets. Keep resolution
-separate from renderer upload; the host and renderer decide how assets become GPU
-resources.
+Use stable asset ids. Return clear failures for missing assets. Keep resolution
+separate from renderer upload; the host and renderer decide how resolved assets
+become GPU resources.
 
 ## Telemetry
 
-Telemetry contracts let a consumer expose a small state snapshot to host
-diagnostics. Keep telemetry cheap to query and avoid hidden blocking IO.
+Telemetry contracts let a consumer expose a small state snapshot to diagnostics.
 
-## Adding A Consumer Module
+Good telemetry is:
 
-1. Create a class library that references `Opus.Engine.Consumer`.
-2. Implement `IConsumerIntegrationFactory`.
-3. Return a `ConsumerIntegration`.
-4. Add a lifecycle hook if the module needs start/stop/frame callbacks.
-5. Add a scene source if the module wants to render scene data.
-6. Add an asset catalog if the scene refers to assets.
-7. Add a telemetry provider if host diagnostics should display module state.
-8. Build the assembly.
-9. Run the alpha host with `--consumer <assembly>`.
-
-## Minimal Factory Shape
-
-```csharp
-using Opus.Engine.Consumer.Integration;
-
-public sealed class SampleConsumerFactory : IConsumerIntegrationFactory
-{
-    public ConsumerIntegration Create()
-    {
-        return new ConsumerIntegration(
-            lifecycle: new SampleLifecycle(),
-            sceneSource: new SampleSceneSource(),
-            assetCatalog: new SampleAssets(),
-            telemetryProvider: new SampleTelemetry());
-    }
-}
-```
-
-Use the exact constructor shape exposed by the current `ConsumerIntegration`
-type. If that type changes, update factories and tests together.
+- cheap to query;
+- non-blocking;
+- stable enough to show in overlays and failure reports;
+- explicit about missing or unavailable data.
 
 ## Testing A Consumer Module
 
@@ -181,13 +185,17 @@ Recommended tests:
 
 - factory is discoverable;
 - factory returns a valid integration;
-- lifecycle hook handles start/stop once;
+- lifecycle hooks handle start/frame/stop;
 - scene source returns stable frame data;
-- asset catalog resolves known IDs and rejects unknown IDs;
+- asset catalog resolves known ids and rejects unknown ids;
 - telemetry is cheap and does not throw;
-- alpha host loader reports a clear failure for malformed assemblies.
+- alpha host loader reports clear failures for malformed assemblies.
 
-The Opus repo includes consumer fixture tests under the alpha host test area.
+The repository includes a test-only consumer plugin fixture under:
+
+```text
+src/Apps/Opus.App.OpusAlpha.Tests.ConsumerPluginFixture
+```
 
 ## Debugging Load Failures
 
@@ -198,8 +206,9 @@ Check in this order:
 3. The assembly dependencies can resolve.
 4. A factory type is loadable.
 5. Exactly one suitable factory is selected.
-6. Factory construction succeeds.
-7. The returned integration passes contract validation.
+6. The factory has a public parameterless constructor.
+7. `CreateIntegration()` succeeds.
+8. The returned integration passes contract validation.
 
 If reflection cannot load every type, the loader keeps the types that did load.
 This allows a valid factory to be found even when unrelated types in the assembly
@@ -211,10 +220,11 @@ When changing `Opus.Engine.Consumer`:
 
 1. Update the contract type.
 2. Update contract validation.
-3. Update the alpha host loader or resolver if discovery changes.
+3. Update alpha host loading or D3D12 adaptation if discovery or data flow
+   changes.
 4. Update fixture consumer assemblies.
 5. Update tests for valid and invalid integrations.
-6. Update this document if the workflow changes.
+6. Update this document.
 
 Prefer additive changes where possible. If a contract becomes required, add a
 clear diagnostic for missing implementations.
@@ -223,7 +233,8 @@ clear diagnostic for missing implementations.
 
 - Consumer contracts do not expose backend-owned resources unnecessarily.
 - The loader returns actionable failures.
-- Reflection code handles partially loadable assemblies.
+- Reflection handles partially loadable assemblies.
 - The factory resolver rejects ambiguous factories.
 - Lifecycle, scene, assets, and telemetry stay separate.
-- Tests cover both valid and invalid consumer assemblies.
+- Tests cover valid and invalid consumer assemblies.
+- Alpha host behavior remains valid without a consumer assembly.

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Opus.Editor.Ui</RootNamespace>
+    <AssemblyName>Opus.Editor.Ui</AssemblyName>
+    <Description>Headless interaction core for the Opus 0.1 UI Edition editor: orbit camera, pick rays, and ray/AABB scene picking. Pure math the visual viewport drives; no GPU.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Opus.Foundation\Opus.Foundation.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Ui\Opus.Engine.Ui.csproj" />
+    <ProjectReference Include="..\..\Engine\Opus.Engine.Input\Opus.Engine.Input.csproj" />
+    <ProjectReference Include="..\Opus.Editor.Core\Opus.Editor.Core.csproj" />
+  </ItemGroup>
+
+</Project>

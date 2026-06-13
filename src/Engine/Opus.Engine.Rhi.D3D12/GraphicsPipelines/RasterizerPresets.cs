@@ -38,7 +38,7 @@ internal static class RasterizerPresets
     };
 
     /// <summary>Solid fill, NO culling, CCW front. Used by the glTF lit-mesh PSO because
-    /// the Sketchfab spec-gloss exports we ship (sample vehicles) declare every
+    /// the Sketchfab spec-gloss exports we ship (Pz.IV.G and friends) declare every
     /// material <c>doubleSided: true</c> — a back-face cull on those primitives drops
     /// the inside-out side panels and hatches the artist authored with reversed winding.
     /// Lambert lighting in the scene PS naturally darkens back-facing pixels (NoL → 0),

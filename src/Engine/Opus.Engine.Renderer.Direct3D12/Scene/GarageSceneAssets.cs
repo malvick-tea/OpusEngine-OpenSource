@@ -36,6 +36,7 @@ public sealed class GarageSceneAssets : IDisposable
     private readonly GpuPrimitive _floorPrimitive;
     private readonly GpuPrimitive _projectilePrimitive;
     private readonly GpuPrimitive _casingPrimitive;
+    private readonly GpuPrimitive _propBoxPrimitive;
     private bool _disposed;
 
     private GarageSceneAssets(
@@ -44,11 +45,13 @@ public sealed class GarageSceneAssets : IDisposable
         GpuPrimitive floorPrimitive,
         GpuPrimitive projectilePrimitive,
         GpuPrimitive casingPrimitive,
+        GpuPrimitive propBoxPrimitive,
         GpuScene augmentedGpuScene,
         IMaterialAtlas atlas,
         SceneNodeDraw[] staticDraws,
         int projectileMeshIndex,
         int casingMeshIndex,
+        int propBoxMeshIndex,
         IReadOnlyList<SceneNodeDraw>? shellTemplate,
         Aabb bounds,
         IReadOnlyList<Aabb> meshLocalBounds)
@@ -58,11 +61,13 @@ public sealed class GarageSceneAssets : IDisposable
         _floorPrimitive = floorPrimitive;
         _projectilePrimitive = projectilePrimitive;
         _casingPrimitive = casingPrimitive;
+        _propBoxPrimitive = propBoxPrimitive;
         GpuScene = augmentedGpuScene;
         Atlas = atlas;
         StaticDraws = staticDraws;
         ProjectileMeshIndex = projectileMeshIndex;
         CasingMeshIndex = casingMeshIndex;
+        PropBoxMeshIndex = propBoxMeshIndex;
         ShellTemplate = shellTemplate;
         Bounds = bounds;
         MeshLocalBounds = meshLocalBounds;
@@ -81,14 +86,16 @@ public sealed class GarageSceneAssets : IDisposable
 
     public int ProjectileMeshIndex { get; }
 
-    /// <summary>Slice index of a small procedural box mesh usable by callers that need a
-    /// neutral placeholder prop without loading another asset.</summary>
-    public int PropBoxMeshIndex => ProjectileMeshIndex;
-
     /// <summary>Slice index of the procedural casing cylinder in the merged scene. Demo
     /// hosts feed one world matrix per live <c>CasingVisual</c> into
     /// <see cref="GarageSceneController.CasingProjectiles"/> to render ejected casings.</summary>
     public int CasingMeshIndex { get; }
+
+    /// <summary>Slice index of the procedural null-material box in the merged scene. The match
+    /// renderer fans it across every destructible street prop (poles, signs, bins), each scaled +
+    /// tinted from its catalogue size; null material means the tint reads as the box's final colour
+    /// rather than a tank-camo modulation.</summary>
+    public int PropBoxMeshIndex { get; }
 
     /// <summary>Flattened node-draw list for the shell glTF, mesh indices already remapped
     /// to the merged <see cref="GpuScene"/>. Null when no shell asset was loaded (the
@@ -130,20 +137,21 @@ public sealed class GarageSceneAssets : IDisposable
         var floorPrimitive = FloorPrimitiveUploader.Upload(device, namePrefix);
         var projectilePrimitive = ProjectilePrimitiveUploader.Upload(device, namePrefix);
         var casingPrimitive = CasingPrimitiveUploader.Upload(device, namePrefix);
+        var propBoxPrimitive = PropBoxPrimitiveUploader.Upload(device, namePrefix);
         var shellScene = shellAssetPath is null
             ? null
             : D3D12GltfSceneLoader.Load(device, shellAssetPath, $"{namePrefix}.shell");
 
         var splice = SpliceProceduralMeshes(
             glbScene.GpuScene, glbScene.MeshLocalBounds, floorPrimitive, projectilePrimitive,
-            casingPrimitive, shellScene);
+            casingPrimitive, propBoxPrimitive, shellScene);
         var staticDraws = new[] { new SceneNodeDraw(splice.FloorMeshIndex, Matrix4x4.Identity) };
         var bounds = shellScene is null ? glbScene.Bounds : glbScene.Bounds.Union(shellScene.Bounds);
 
         return new GarageSceneAssets(
-            glbScene, shellScene, floorPrimitive, projectilePrimitive, casingPrimitive,
+            glbScene, shellScene, floorPrimitive, projectilePrimitive, casingPrimitive, propBoxPrimitive,
             splice.Augmented, atlas, staticDraws, splice.ProjectileMeshIndex, splice.CasingMeshIndex,
-            splice.ShellTemplate, bounds, splice.MeshLocalBounds);
+            splice.PropBoxMeshIndex, splice.ShellTemplate, bounds, splice.MeshLocalBounds);
     }
 
     public void Dispose()
@@ -165,6 +173,8 @@ public sealed class GarageSceneAssets : IDisposable
         _projectilePrimitive.Ib.Dispose();
         _casingPrimitive.Vb.Dispose();
         _casingPrimitive.Ib.Dispose();
+        _propBoxPrimitive.Vb.Dispose();
+        _propBoxPrimitive.Ib.Dispose();
         Atlas.Dispose();
         _disposed = true;
     }
@@ -183,23 +193,26 @@ public sealed class GarageSceneAssets : IDisposable
         int FloorMeshIndex,
         int ProjectileMeshIndex,
         int CasingMeshIndex,
+        int PropBoxMeshIndex,
         IReadOnlyList<SceneNodeDraw>? ShellTemplate,
         IReadOnlyList<Aabb> MeshLocalBounds);
 
     /// <summary>Builds the merged <see cref="GpuScene"/> that backs the whole frame.
     /// Layout in primitives + slices: tank-GLB primitives, then floor, projectile cube,
-    /// casing cylinder, then (optional) shell glTF primitives. Slice indices are stable
+    /// casing cylinder, prop box, then (optional) shell glTF primitives. Slice indices are stable
     /// so callers can hand <see cref="FloorMeshIndex"/> / <see cref="ProjectileMeshIndex"/>
-    /// / <see cref="CasingMeshIndex"/> directly to <see cref="SceneNodeDraw"/>.</summary>
+    /// / <see cref="CasingMeshIndex"/> / <see cref="PropBoxMeshIndex"/> directly to
+    /// <see cref="SceneNodeDraw"/>.</summary>
     private static SpliceResult SpliceProceduralMeshes(
         GpuScene source,
         IReadOnlyList<Aabb> tankBounds,
         GpuPrimitive floor,
         GpuPrimitive projectile,
         GpuPrimitive casing,
+        GpuPrimitive propBox,
         GltfSceneGpuAssets? shellScene)
     {
-        const int ProceduralPrimitiveCount = 3;
+        const int ProceduralPrimitiveCount = 4;
         var shellPrimCount = shellScene?.GpuScene.Primitives.Length ?? 0;
         var shellSliceCount = shellScene?.GpuScene.SlicesByMesh.Length ?? 0;
         var tankPrimCount = source.Primitives.Length;
@@ -210,6 +223,7 @@ public sealed class GarageSceneAssets : IDisposable
         primitives[tankPrimCount] = floor;
         primitives[tankPrimCount + 1] = projectile;
         primitives[tankPrimCount + 2] = casing;
+        primitives[tankPrimCount + 3] = propBox;
         if (shellScene is not null)
         {
             Array.Copy(shellScene.GpuScene.Primitives, 0, primitives,
@@ -221,9 +235,11 @@ public sealed class GarageSceneAssets : IDisposable
         var floorMeshIndex = tankSliceCount;
         var projectileMeshIndex = tankSliceCount + 1;
         var casingMeshIndex = tankSliceCount + 2;
+        var propBoxMeshIndex = tankSliceCount + 3;
         slices[floorMeshIndex] = new GpuMeshSlice(tankPrimCount, 1);
         slices[projectileMeshIndex] = new GpuMeshSlice(tankPrimCount + 1, 1);
         slices[casingMeshIndex] = new GpuMeshSlice(tankPrimCount + 2, 1);
+        slices[propBoxMeshIndex] = new GpuMeshSlice(tankPrimCount + 3, 1);
 
         var shellTemplate = shellScene is null
             ? null
@@ -235,16 +251,17 @@ public sealed class GarageSceneAssets : IDisposable
 
         var meshLocalBounds = BuildMergedMeshBounds(
             tankBounds, tankSliceCount, ProceduralPrimitiveCount, shellSliceCount,
-            floorMeshIndex, projectileMeshIndex, casingMeshIndex, slices.Length, shellScene);
+            new[] { floorMeshIndex, projectileMeshIndex, casingMeshIndex, propBoxMeshIndex },
+            slices.Length, shellScene);
 
         return new SpliceResult(
             new GpuScene(primitives, slices),
-            floorMeshIndex, projectileMeshIndex, casingMeshIndex, shellTemplate, meshLocalBounds);
+            floorMeshIndex, projectileMeshIndex, casingMeshIndex, propBoxMeshIndex, shellTemplate, meshLocalBounds);
     }
 
     /// <summary>Builds the per-mesh local-AABB table for the merged scene in the same mesh
-    /// order as the merged slice table: tank meshes carry their real glTF bounds, the three
-    /// procedural slices (floor, projectile, casing) are <see cref="Aabb.Empty"/> so culling
+    /// order as the merged slice table: tank meshes carry their real glTF bounds, the procedural
+    /// slices (floor, projectile, casing, prop box) are <see cref="Aabb.Empty"/> so culling
     /// always keeps them, and shell meshes carry the shell glTF's bounds. Defensive against a
     /// short <paramref name="tankBounds"/> (treats a missing entry as Empty / always-kept)
     /// so a malformed asset never makes culling drop a node it cannot bound.</summary>
@@ -253,9 +270,7 @@ public sealed class GarageSceneAssets : IDisposable
         int tankSliceCount,
         int proceduralPrimitiveCount,
         int shellSliceCount,
-        int floorMeshIndex,
-        int projectileMeshIndex,
-        int casingMeshIndex,
+        int[] proceduralMeshIndices,
         int totalSlices,
         GltfSceneGpuAssets? shellScene)
     {
@@ -265,9 +280,10 @@ public sealed class GarageSceneAssets : IDisposable
             meshBounds[i] = i < tankBounds.Count ? tankBounds[i] : Aabb.Empty;
         }
 
-        meshBounds[floorMeshIndex] = Aabb.Empty;
-        meshBounds[projectileMeshIndex] = Aabb.Empty;
-        meshBounds[casingMeshIndex] = Aabb.Empty;
+        foreach (var proceduralMeshIndex in proceduralMeshIndices)
+        {
+            meshBounds[proceduralMeshIndex] = Aabb.Empty;
+        }
 
         if (shellScene is not null)
         {

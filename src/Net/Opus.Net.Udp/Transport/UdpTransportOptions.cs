@@ -4,13 +4,13 @@ namespace Opus.Net.Udp.Transport;
 
 /// <summary>
 /// Tuneable knobs for both <see cref="UdpClientTransport"/> and
-/// <see cref="UdpServerTransport"/>. The defaults are sized for a Phase-32 local test
+/// <see cref="UdpServerTransport"/>. The defaults are sized for a Phase-32 closed-alpha
 /// match (60 Hz sim, snapshots every tick): heartbeat once a second is generous, and a
 /// ten-second dead-peer cut-off leaves room for client-side network hiccups.
 /// </summary>
 /// <remarks>
 /// Smaller values are appropriate for unit tests (so a hang is loud and a disconnect
-/// closes in tens of milliseconds). Runtime never wants sub-second heartbeats — that
+/// closes in tens of milliseconds). Production never wants sub-second heartbeats — that
 /// just adds noise to the line — but values down to <c>50 ms</c> are stable on loopback.
 /// </remarks>
 public sealed record UdpTransportOptions
@@ -29,7 +29,7 @@ public sealed record UdpTransportOptions
     /// <summary>How long the receive worker blocks on <c>Socket.ReceiveFrom</c> before
     /// looping into the housekeeping pass. Smaller values give snappier heartbeat /
     /// timeout reaction at the cost of more wakeups; <c>250 ms</c> hits a comfortable
-    /// balance for runtime.</summary>
+    /// balance for production.</summary>
     public TimeSpan ReceivePollInterval { get; init; } = TimeSpan.FromMilliseconds(250);
 
     /// <summary>Total budget the client gives the server to answer <c>Hello</c> with
@@ -124,7 +124,7 @@ public sealed record UdpTransportOptions
         }
     }
 
-    /// <summary>Default options — runtime-tuned (1s heartbeat, 10s deadline, 5s connect
+    /// <summary>Default options — production-tuned (1s heartbeat, 10s deadline, 5s connect
     /// budget, 250ms poll wakeup, 64-peer cap, 256-burst / 512-per-second per-peer inbound rate).
     /// Tests should construct a smaller variant locally.</summary>
     public static UdpTransportOptions Default { get; } = new();

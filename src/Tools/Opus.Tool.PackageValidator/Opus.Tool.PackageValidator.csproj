@@ -13,4 +13,8 @@
     <ProjectReference Include="..\..\Localisation\Opus.Localisation\Opus.Localisation.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Resources\Diagnostics\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

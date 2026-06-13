@@ -38,7 +38,7 @@
         SA1602     — document enum members; overkill for typed code
         SA1614/1615 — param/return XML tags; XML doc is not mandatory
         SA1623/1629/1642 — XML doc text format nitpicks
-        SA1633     — file header; copyright lives in NOTICE/LICENSE
+        SA1633     — file header; copyright lives in LICENSE
         SA1649     — filename matches top-level type; we group related types on purpose
         CA1000     — static members on generic types; Result&lt;T&gt;.Ok is idiomatic
         CA1707     — underscores in identifiers; test method names use them

@@ -47,7 +47,7 @@ public sealed record AlphaStressProfile(
     public const int MinimumIterationCount = 1;
 
     /// <summary>Maximum allowed iteration count. Sized so a manual or CI stress
-    /// completes in tens of seconds rather than hours; runtime overnight runs belong
+    /// completes in tens of seconds rather than hours; production overnight runs belong
     /// to a future M12 hardening harness.</summary>
     public const int MaximumIterationCount = 200;
 

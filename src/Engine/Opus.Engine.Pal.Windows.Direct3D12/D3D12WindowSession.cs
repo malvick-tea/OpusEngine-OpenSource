@@ -9,9 +9,8 @@ namespace Opus.Engine.Pal.Windows.Direct3D12;
 /// from a Windows process: an SDL3 window, a D3D12 RHI device, a flip-discard swap chain
 /// matched to the window, and a DXC shader compiler.
 ///
-/// <para>Lifted out of <c>the sample garage demo</c> in Phase B of the D3D12 migration so
-/// the future <c>the game client</c> host and the <see cref="D3D12UiFrameLoop"/>
-/// integration smoke tests compose the same path the demo runs.</para>
+/// <para>Shared by the alpha host, editor host, and <see cref="D3D12UiFrameLoop"/>
+/// integration smoke tests so every live window composes the same D3D12 path.</para>
 ///
 /// <para>Open-ness is best-effort: <see cref="TryOpen"/> returns <c>null</c> when no
 /// D3D12-capable adapter is available so callers (smoke tests, demo) can skip cleanly
@@ -46,7 +45,7 @@ public sealed class D3D12WindowSession : IDisposable
     public D3D12ShaderCompiler Compiler => _compiler;
 
     /// <summary>Brings up window + device + swap chain + compiler in the exact order the
-    /// runtime path needs. Returns <c>null</c> when SDL video or D3D12 adapter
+    /// production path needs. Returns <c>null</c> when SDL video or D3D12 adapter
     /// initialisation fails — that's a host-environment problem, not a programming error,
     /// so callers branch on it instead of catching exceptions.</summary>
     public static D3D12WindowSession? TryOpen(D3D12WindowSessionOptions options)

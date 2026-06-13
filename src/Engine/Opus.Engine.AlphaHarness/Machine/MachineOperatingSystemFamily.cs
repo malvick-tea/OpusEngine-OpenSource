@@ -1,7 +1,7 @@
 namespace Opus.Engine.AlphaHarness.Machine;
 
 /// <summary>Coarse-grained operating system family the machine profile distinguishes.
-/// Runtime Opus 0.1 targets Windows; other families are recorded so a CI host can
+/// Production Opus 0.1 targets Windows; other families are recorded so a CI host can
 /// capture its profile without being rejected outright.</summary>
 public enum MachineOperatingSystemFamily
 {

@@ -1,0 +1,11 @@
+{
+  "profileName": "windows-d3d12-2026",
+  "operatingSystemFamily": "Windows",
+  "operatingSystemDescription": "Microsoft Windows 10.0.26200",
+  "processArchitecture": "X64",
+  "logicalProcessorCount": 16,
+  "dotnetRuntimeVersion": ".NET 8.0.27",
+  "graphicsAdapterName": null,
+  "capturedAtUtc": "2026-05-27T11:29:23.5750816+00:00",
+  "notes": "M9 Alpha App Harness baseline. Lead workstation snapshot captured by Opus.App.OpusAlpha check-machine --save. graphicsAdapterName intentionally null at the M9 closure so the file is portable across CI hosts; consumers run check-machine --reference and re-snapshot with adapter populated once a D3D12 device is open on their own hardware."
+}

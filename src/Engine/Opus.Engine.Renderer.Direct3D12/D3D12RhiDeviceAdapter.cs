@@ -18,7 +18,7 @@ namespace Opus.Engine.Renderer.Direct3D12;
 /// <see cref="IRhiDevice"/> (abstract, has erased factory surface like
 /// <c>CreateBuffer(RhiBufferDescription) → IRhiBuffer</c>). The D3D12 buffer/texture/etc.
 /// types don't implement the abstract interfaces today (they predate them); the bridge is
-/// scoped to M3-wrap.a — runtime passes still go through
+/// scoped to M3-wrap.a — production passes still go through
 /// <see cref="D3D12Renderer.DeviceConcrete"/> for now.
 /// </remarks>
 internal sealed class D3D12RhiDeviceAdapter : IRhiDevice

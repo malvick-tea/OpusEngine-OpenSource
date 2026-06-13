@@ -26,7 +26,7 @@ using Silk.NET.Direct3D12;
 
 namespace Opus.Engine.Host.Windows.Direct3D12;
 
-/// <summary>Runtime <see cref="IOpusApplication"/> for the Windows/D3D12 host. Drives
+/// <summary>Production <see cref="IOpusApplication"/> for the Windows/D3D12 host. Drives
 /// the canonical Opus 0.1 alpha frame each render tick: offscreen scene viewport →
 /// forward scene renderer → UI textured composite → swap-chain present, with optional
 /// per-frame readback for a metadata-tagged PNG screenshot.

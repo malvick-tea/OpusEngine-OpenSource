@@ -1,25 +1,35 @@
 # Content And Package Tools
 
-This document explains the content parsing and package validation code in Opus.
-It covers the library layer, archive layer, signing layer, diagnostics, and the
-package CLI.
+Opus content code is split into two layers:
+
+- `Opus.Content` reads and prepares asset data.
+- `Opus.Content.Packaging` describes, validates, archives, signs, verifies, and
+  extracts Opus packages.
+
+The command-line tool in `Opus.Tool.PackageValidator` is a thin shell over those
+library layers.
 
 ## Module Map
 
 ```text
 Opus.Content
-  -> low-level glTF, mesh, animation, image, texture, mip, and compression code
+  glTF/GLB, scene tree math, mesh data, animation sampling, image decoding,
+  mip generation, block compression.
 
 Opus.Content.Packaging
-  -> manifests, validation, archives, signing, diagnostics, path safety
+  Package manifests, validation diagnostics, archive packing, archive reading,
+  signing, verification, extraction, relative path safety.
 
 Opus.Tool.PackageValidator
-  -> command-line access to package validation, generation, packing, verifying,
-     and unpacking
+  CLI commands: validate, generate, pack, verify, unpack.
+
+Opus.Editor.Content
+  Editor-facing model summaries, scene content reports, and material-set
+  inspection.
 ```
 
-The content package library is headless. It does not reference D3D12 renderer
-assemblies.
+None of these libraries allocate D3D12 resources. Renderer upload happens in the
+renderer layer.
 
 ## Low-Level Content
 
@@ -40,20 +50,20 @@ assemblies.
 - `BcnTextureEncoder`
 - `CompressedTextureCache`
 
-Use this layer for parsing and transforming content bytes. Do not allocate GPU
-resources here.
+Use this layer for bytes-in/data-out work. Keep GPU allocation, package trust,
+and editor UI out of it.
 
 ## Package Manifest
 
 The package manifest describes:
 
-- format version;
+- manifest format version;
 - package identity;
 - target engine identity;
 - authoring metadata;
-- entrypoints;
+- entry points;
 - required features;
-- file list;
+- declared files;
 - optional extension data.
 
 Important types:
@@ -68,28 +78,30 @@ Important types:
 - `PackageAssetTypes`
 - `PackageAssetTypeInference`
 
-Manifest parsing preserves unknown additive fields through extension data. This
-lets newer manifests be read with a warning when the major version is compatible.
+Unknown additive fields are preserved through extension data when the format is
+compatible. This lets newer manifests remain inspectable by older tooling where
+safe.
 
 ## Path Safety
 
-`PackageRelativePath` rejects paths that are not safe inside a package root.
+`PackageRelativePath` protects package roots from unsafe paths.
 
-Reject examples:
+Rejected examples:
 
-- empty path;
-- rooted path;
+- empty paths;
+- rooted paths;
 - parent-directory traversal;
 - current-directory segments;
 - null characters;
 - malformed separators.
 
-Package code should never combine raw manifest paths with a root without first
-passing through the relative path validator.
+Package code should never combine raw manifest paths with a package root until
+the path has passed the relative-path validator.
 
 ## Validation
 
-`PackageValidator` validates a directory in one pass and returns diagnostics.
+`PackageValidator` validates package directories and returns structured
+diagnostics.
 
 It checks:
 
@@ -97,7 +109,7 @@ It checks:
 - manifest existence;
 - manifest JSON shape;
 - manifest format version;
-- engine identity;
+- engine identity compatibility;
 - required features;
 - duplicate paths;
 - path safety;
@@ -106,7 +118,7 @@ It checks:
 - SHA-256 hash;
 - unlisted files;
 - supported asset types;
-- content-aware validation within the configured memory budget.
+- content-aware validation within a configured memory budget.
 
 Important types:
 
@@ -127,10 +139,10 @@ Content-aware validators include:
 
 ## Diagnostics
 
-Diagnostics are structured:
+Package diagnostics are structured:
 
 - severity;
-- code;
+- stable code;
 - target;
 - message;
 - hint;
@@ -144,13 +156,13 @@ Important types:
 - `PackageDiagnosticSeverity`
 - `PackageDiagnosticTarget`
 - `PackageDiagnosticArguments`
+- `PackageDiagnosticLocalizer`
 
-When adding a diagnostic, add a stable code and test both the triggering
-condition and the reported target.
+Messages can improve over time. Codes should be treated as stable.
 
 ## Archives
 
-The archive layer supports packing, reading, verifying, and extracting package
+The archive layer supports packing, reading, verifying, and extracting `.opkg`
 archives.
 
 Important types:
@@ -165,8 +177,8 @@ Important types:
 - `OpusPackageExtractor`
 - `ArchiveEntryHash`
 
-Archive code should preserve package structure and avoid trusting archive paths
-without validation.
+Archive extraction must preserve package structure and must not trust archive
+paths without validation.
 
 ## Signing
 
@@ -180,12 +192,12 @@ Important types:
 - `PackageSigner`
 - `PackageSignatureVerifier`
 
-Signing tests use fixture keys. Keep signing policy separate from ordinary
-manifest validation.
+Signing policy is separate from ordinary manifest validation. A package can be
+structurally valid while failing a signature requirement.
 
 ## Manifest Generation
 
-Manifest generation scans a package directory and emits file entries.
+Manifest generation scans a content root and emits declared file entries.
 
 Important types:
 
@@ -196,7 +208,7 @@ Important types:
 Generation should produce stable output. If ordering changes, update tests
 intentionally.
 
-## Package CLI
+## CLI
 
 Project:
 
@@ -204,94 +216,127 @@ Project:
 src/Tools/Opus.Tool.PackageValidator
 ```
 
-Main command areas:
-
-- validate;
-- generate;
-- pack;
-- verify;
-- unpack.
-
-Supporting types:
-
-- `CliOptionReader`
-- `CliDiagnosticReporter`
-- `PackageValidatorCommand`
-- `PackageGenerateCommand`
-- `PackagePackCommand`
-- `PackageVerifyCommand`
-- `PackageUnpackCommand`
-- `TextPackageValidationReporter`
-- `JsonPackageValidationReporter`
-- `PackageDiagnosticLocalizer`
-
-CLI commands should be thin wrappers around the library layer.
-
-## Validate Command
-
-Typical command:
+Show help:
 
 ```powershell
-dotnet run --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- validate --package <path>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- --help
 ```
 
-Expected behavior:
+Current command shape:
 
-- read package directory;
-- validate manifest and files;
-- print diagnostics;
-- return a stable exit code.
+```text
+validate <package-root> [--format text|json] [--locale en|ru] [--unlisted warning|error|ignore] [--max-deep-validation-bytes <bytes>]
+generate <content-root> --id <id> --name <display-name> --version <semver> [--created <iso-utc>] [--output <path>] [--locale en|ru]
+pack <content-root> [--id <id> --name <name> --version <semver>] [--manifest <path>] [--output <path.opkg>] [--key <private-key.pem> --key-id <id>] [--locale en|ru]
+verify <package.opkg> [--key <public-key.pem>] [--require-signature] [--locale en|ru]
+unpack <package.opkg> <target-dir> [--locale en|ru]
+```
 
-Use JSON reporting when another tool needs to parse the output.
+## Validate
 
-## Generate Command
-
-Typical command:
+Validate a package directory:
 
 ```powershell
-dotnet run --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- generate --package <path>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- validate .\content\sample-package
 ```
 
-Expected behavior:
-
-- scan package files;
-- infer asset types;
-- write or print a manifest depending on options;
-- keep generated file order stable.
-
-## Pack And Verify
-
-Pack:
+Emit JSON diagnostics:
 
 ```powershell
-dotnet run --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- pack --package <path> --output <archive>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- validate .\content\sample-package --format json
 ```
 
-Verify:
+Treat unlisted files as errors:
 
 ```powershell
-dotnet run --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify --archive <archive>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- validate .\content\sample-package --unlisted error
 ```
 
-Use pack/verify tests when changing archive structure, limits, or hash behavior.
+## Generate
+
+Generate a manifest:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- generate .\content\sample-package --id sample.package --name "Sample Package" --version 0.1.0 --output .\content\sample-package\opus.package.json
+```
+
+Generation scans files, infers asset types where possible, and writes stable
+manifest output.
+
+## Pack
+
+Pack a content root:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- pack .\content\sample-package --output .\.local\sample.opkg
+```
+
+Pack and sign:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- pack .\content\sample-package --output .\.local\sample.opkg --key .\keys\private-key.pem --key-id local-dev
+```
+
+Use `--manifest <path>` when the manifest is outside the default location.
+
+## Verify
+
+Verify archive structure and hashes:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg
+```
+
+Require a valid signature:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg --key .\keys\public-key.pem --require-signature
+```
+
+## Unpack
+
+Extract into a target directory:
+
+```powershell
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack .\.local\sample.opkg .\.local\unpacked-sample
+```
+
+Extraction uses package path safety rules. Archive entries must not escape the
+target root.
+
+## Editor Content Helpers
+
+`Opus.Editor.Content` provides authoring-facing inspection:
+
+- `ModelInspector` summarizes glTF/GLB meshes and triangle counts.
+- `SceneContentReporter` reports scene asset usage and rough content cost.
+- `MaterialSetInspector` checks PBR material set conventions.
+
+Editor CLI examples:
+
+```powershell
+dotnet run -c Release --project .\src\Editor\Opus.App.Editor\Opus.App.Editor.csproj -- inspect .\content\models\tank.glb
+dotnet run -c Release --project .\src\Editor\Opus.App.Editor\Opus.App.Editor.csproj -- report .\scene.json --content-root .\content
+dotnet run -c Release --project .\src\Editor\Opus.App.Editor\Opus.App.Editor.csproj -- materials .\content\materials
+```
 
 ## Add A New Asset Validator
 
 1. Decide the package asset type.
 2. Add or update asset type inference.
 3. Implement `IPackageFileValidator`.
-4. Add it to the declared file validator dispatch.
+4. Add it to declared-file validation dispatch.
 5. Add tests for valid, malformed, oversized, and mismatched files.
-6. Add CLI tests if user-facing diagnostics change.
+6. Add CLI/reporting tests if user-facing diagnostics change.
 
-Keep validators bounded. Integrity checks can stream large files; deep validation
-should respect the configured memory budget.
+Keep validators bounded. Integrity checks can stream large files; deep
+validation should respect the configured memory budget.
 
 ## Add A Manifest Field
 
 1. Add the field to the manifest type.
 2. Decide whether it is required or optional.
-3. Update the reader tests.
+3. Update reader tests.
 4. Update validation if the field has rules.
 5. Update generation if the field should be emitted.
 6. Preserve compatibility behavior for unknown additive fields.
@@ -306,8 +351,6 @@ Do not add validation rules in the CLI when they belong in the library.
 4. Add tests that assert the code and target.
 5. Add localisation/reporting coverage if message output changes.
 
-Messages can change. Codes should be treated as stable.
-
 ## Debugging Validation
 
 Use this order:
@@ -321,23 +364,24 @@ Use this order:
 7. Check asset-type inference.
 8. Check deep validator behavior.
 9. Check reporter output.
+10. Check CLI argument parsing last.
 
-This order separates manifest problems from file content problems.
+This separates manifest problems from filesystem, file-content, and command-line
+problems.
 
 ## Test Map
 
-Useful tests:
+Useful areas:
 
-- `PackageValidatorTests`
-- `PackageValidatorLargeFileTests`
-- `PackageManifestGeneratorTests`
-- `PackageRelativePathTests`
-- `PackageFileHashTests`
-- archive tests under `Archive/`
-- signing tests under `Signing/`
-- package tool command tests
+- package validation tests in `Opus.Content.Packaging.Tests`;
+- archive tests under archive-related test files;
+- signing tests under signing-related test files;
+- manifest generation tests;
+- package tool command tests in `Opus.Tool.PackageValidator.Tests`;
+- editor content tests in `Opus.Editor.Content.Tests`.
 
-When changing package behavior, run both library tests and CLI tests.
+When changing package behavior, run both the library tests and package-tool
+tests.
 
 ## Review Checklist
 
@@ -347,4 +391,5 @@ When changing package behavior, run both library tests and CLI tests.
 - Diagnostics have stable codes.
 - CLI commands call library code rather than duplicating rules.
 - Archive paths cannot escape the package root.
+- Signature requirements are explicit.
 - Tests cover malformed input, not only happy paths.

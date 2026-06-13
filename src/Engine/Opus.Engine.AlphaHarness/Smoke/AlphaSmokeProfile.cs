@@ -36,7 +36,7 @@ public sealed record AlphaSmokeProfile(
     public const int MinimumFrameTarget = 1;
 
     /// <summary>Maximum frame target. Sized so a manual or CI smoke completes in tens of
-    /// seconds rather than hours; runtime stress runs belong to M11 stress harnesses.</summary>
+    /// seconds rather than hours; production stress runs belong to M11 stress harnesses.</summary>
     public const int MaximumFrameTarget = 10_000;
 
     /// <summary>Conventional smoke frame target (~one second at 60 Hz). Long enough to

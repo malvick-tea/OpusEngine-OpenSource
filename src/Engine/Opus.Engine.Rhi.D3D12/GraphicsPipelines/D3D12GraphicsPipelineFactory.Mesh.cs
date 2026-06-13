@@ -108,7 +108,7 @@ public static unsafe partial class D3D12GraphicsPipelineFactory
     /// without tangents — Lambert + ambient + per-object tint via root constants. Uses
     /// <see cref="RasterizerPresets.SolidCullNoneCcw"/> (no back-face cull) because every
     /// glTF tank asset we ship is authored <c>doubleSided: true</c>; the cull-back default
-    /// produced visible hull / hatch / side-panel dropouts on the a sample vehicle. See the preset's
+    /// produced visible hull / hatch / side-panel dropouts on the Pz.IV. See the preset's
     /// docstring for the full rationale.</summary>
     public static D3D12GraphicsPipeline CreatePosNormalUvLitDepth(
         D3D12RhiDevice device, D3D12RootSignature rootSignature,

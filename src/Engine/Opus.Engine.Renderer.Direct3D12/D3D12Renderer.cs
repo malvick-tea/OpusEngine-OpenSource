@@ -43,7 +43,7 @@ public sealed class D3D12Renderer : IRenderer
     /// renderer creates its own frame graph + command list and disposes both on
     /// <see cref="Dispose"/>; the caller retains ownership of device + swap chain.</summary>
     /// <param name="device">Live D3D12 device (the singleton held by
-    /// <c>D3D12TestHarness</c> in tests; a host-owned instance in runtime).</param>
+    /// <c>D3D12TestHarness</c> in tests; a host-owned instance in production).</param>
     /// <param name="swapChain">The presentation target. One swap chain per renderer
     /// today; multi-window support arrives via multi-viewport.</param>
     /// <param name="commandListDebugName">Diagnostic name on the command list — surfaces

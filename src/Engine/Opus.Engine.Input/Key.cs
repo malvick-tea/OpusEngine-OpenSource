@@ -14,6 +14,7 @@ public enum Key
     Space,
     Tab,
     Backspace,
+    Delete,
 
     Left,
     Right,
@@ -79,4 +80,13 @@ public enum Key
     // stay unmapped until a use lands.
     Period,
     Hyphen,
+
+    // Modifier keys. Queried as held state (IsKeyDown) to gate a chord such as the editor's
+    // Ctrl+S save or a modified pointer gesture such as the editor's Shift+drag box select; both
+    // sides are distinct so a binding can require a specific hand if it ever needs to. The
+    // remaining modifiers (Alt, Super) stay unmapped until a feature needs them.
+    LeftControl,
+    RightControl,
+    LeftShift,
+    RightShift,
 }

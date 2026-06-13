@@ -11,7 +11,7 @@ namespace Opus.Engine.Net.Tests.Telemetry;
 
 /// <summary>Behaviour of <see cref="NetSessionLogSink"/>: maps event kind to log level,
 /// emits stable code-prefixed lines, and respects the underlying log's minimum-level
-/// filter so trace-level payload traffic does not flood runtime logs.</summary>
+/// filter so trace-level payload traffic does not flood production logs.</summary>
 public sealed class NetSessionLogSinkTests
 {
     [Fact]

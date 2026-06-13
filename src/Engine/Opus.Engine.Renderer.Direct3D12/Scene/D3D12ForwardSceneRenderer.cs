@@ -30,7 +30,7 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// culling yet (that's the Forward+ extension for M3-wrap.b.1). Local lights on
 /// <see cref="LightingSetup.LocalLights"/> are ignored at this milestone.
 /// </para></summary>
-public sealed unsafe partial class D3D12ForwardSceneRenderer : IDisposable
+public sealed unsafe class D3D12ForwardSceneRenderer : IDisposable
 {
     private const int SceneCbSize = 256;
 
@@ -267,6 +267,48 @@ public sealed unsafe partial class D3D12ForwardSceneRenderer : IDisposable
         }
     }
 
+    /// <summary>Applies opt-in CPU frustum culling then opt-in coarse LOD, the two pure draw-list
+    /// transforms in front of the instanced pass. With per-mesh <paramref name="meshLocalBounds"/>
+    /// it builds the camera frustum from the same view-projection the scene constants use
+    /// (<c>Main.View * Main.Projection</c>), drops nodes fully outside, and records
+    /// <see cref="LastCulledNodeCount"/>. When <paramref name="meshLods"/> is also supplied it then
+    /// reselects each surviving node to its distance-appropriate LOD level (reusing the same bounds
+    /// for the camera distance) and records <see cref="LastLodDemotedNodeCount"/>. With neither
+    /// supplied it returns the input list untouched and zeroes both counts, so opted-out callers
+    /// render byte-for-byte as before. LOD reuses the cull bounds for distance, so it only runs when
+    /// <paramref name="meshLocalBounds"/> is present.</summary>
+    private IReadOnlyList<SceneNodeDraw> ResolveDraws(
+        IReadOnlyList<SceneNodeDraw> nodeDraws,
+        IReadOnlyList<Aabb>? meshLocalBounds,
+        IReadOnlyList<SceneMeshLod>? meshLods,
+        FrameCameraSet cameras)
+    {
+        var camera = cameras.Main;
+        var draws = nodeDraws;
+
+        if (meshLocalBounds is null || meshLocalBounds.Count == 0)
+        {
+            LastCulledNodeCount = 0;
+        }
+        else
+        {
+            var frustum = Frustum.FromViewProjection(camera.View * camera.Projection);
+            var culled = SceneNodeCuller.Cull(nodeDraws, meshLocalBounds, in frustum);
+            LastCulledNodeCount = culled.CulledCount;
+            draws = culled.Visible;
+        }
+
+        if (meshLods is null || meshLods.Count == 0 || meshLocalBounds is null || meshLocalBounds.Count == 0)
+        {
+            LastLodDemotedNodeCount = 0;
+            return draws;
+        }
+
+        var lod = SceneLodSelector.Select(draws, meshLods, meshLocalBounds, camera.PositionWorld);
+        LastLodDemotedNodeCount = lod.DemotedNodeCount;
+        return lod.Draws;
+    }
+
     /// <summary>Groups the (already culled) draw list into per-mesh instance batches and uploads
     /// the flat instance buffer into <paramref name="slot"/>'s ring slot, returning the batch
     /// table + the buffer to bind as the pass's instance root SRV.</summary>
@@ -298,7 +340,6 @@ public sealed unsafe partial class D3D12ForwardSceneRenderer : IDisposable
         }
 
         _instanceRing.Dispose();
-        DisposeLayerInstanceRings();
         _targets.Dispose();
         _tonemapPso.Dispose();
         _tonemapRootSig.Dispose();

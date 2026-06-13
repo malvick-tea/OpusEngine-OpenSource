@@ -4,7 +4,7 @@ using Opus.Engine.Net.Soak;
 namespace Opus.Engine.AlphaStress.Network;
 
 /// <summary>
-/// Runtime <see cref="IAlphaStressNetworkProbe"/> implementation. Each
+/// Production <see cref="IAlphaStressNetworkProbe"/> implementation. Each
 /// <see cref="RunIteration"/> call opens a fresh <see cref="FaultInjectionLoopbackSoakRig"/>,
 /// drives the inner <see cref="NetSoakHarness"/> against the supplied
 /// <see cref="AlphaStressNetworkProfile"/>, and disposes the rig before returning. Per-

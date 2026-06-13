@@ -4,7 +4,7 @@ using System.Numerics;
 namespace Opus.Engine.Renderer.Direct3D12.Assets;
 
 /// <summary>Procedural casing geometry: a closed 12-segment cylinder approximating an
-/// 88mm gun spent shell case (~8.8cm diameter × ~60cm length). Used by the Garage
+/// 8.8cm KwK 36 spent shell case (~8.8cm diameter × ~60cm length). Used by the Garage
 /// demo's <c>CasingEjector</c> to render demo-side casing ejecta when a tank fires. Will
 /// be replaced by a textured glTF asset once the casing model is authored.</summary>
 /// <remarks>
@@ -20,12 +20,12 @@ public static class CasingMesh
     /// and keeps the vertex count low (50 verts total, 144 indices).</summary>
     public const int SegmentCount = 12;
 
-    /// <summary>Outer radius — historically accurate 88mm round case
+    /// <summary>Outer radius — historically accurate 8.8cm Tiger I round case
     /// (radius = 0.044m, diameter 0.088m).</summary>
     public const float DefaultRadiusMeters = 0.044f;
 
     /// <summary>Half-length along Y. Total length = 2 × this = 0.6m, in line with the
-    /// shoulder-to-base length of the gun case.</summary>
+    /// shoulder-to-base length of the KwK 36 case.</summary>
     public const float DefaultHalfLengthMeters = 0.3f;
 
     public static GltfVertexPosNormalUv[] BuildVertices(
