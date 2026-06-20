@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Opus.Editor.Core;
+using Opus.Foundation.IO;
 
 namespace Opus.App.Editor.Run;
 
@@ -45,7 +46,7 @@ public sealed record EditorProjectWorkspace(
 
             try
             {
-                resolved.Add(Path.GetFullPath(Path.Combine(baseDirectory, reference)));
+                resolved.Add(PathContainment.ResolveUnderRoot(baseDirectory, reference));
             }
             catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
             {

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 
 namespace Opus.App.OpusAlpha.Run.Consumer;
@@ -18,7 +17,10 @@ public static class ConsumerIntegrationAssemblyLoader
 {
     /// <summary>Loads and constructs the consumer integration declared by the assembly at
     /// <paramref name="assemblyPath"/>, or returns a failure describing why it could not.</summary>
-    public static ConsumerIntegrationLoadResult Load(string assemblyPath)
+    public static ConsumerIntegrationLoadResult Load(
+        string assemblyPath,
+        string trustedPublicKeyPath,
+        string? signaturePath = null)
     {
         if (string.IsNullOrWhiteSpace(assemblyPath))
         {
@@ -35,19 +37,63 @@ public static class ConsumerIntegrationAssemblyLoader
             return ConsumerIntegrationLoadResult.Failure($"Consumer assembly '{fullPath}' was not found.");
         }
 
+        if (string.IsNullOrWhiteSpace(trustedPublicKeyPath))
+        {
+            return ConsumerIntegrationLoadResult.Failure(
+                "No trusted consumer public key was supplied.");
+        }
+
+        var trustResult = ConsumerPluginSignatureVerifier.VerifyAndRead(
+            fullPath,
+            signaturePath ?? fullPath + ".sig",
+            trustedPublicKeyPath);
+        if (!trustResult.Succeeded)
+        {
+            return ConsumerIntegrationLoadResult.Failure(
+                trustResult.FailureReason ?? "Consumer signature verification failed.");
+        }
+
         Assembly assembly;
+        ConsumerPluginLoadContext? context = null;
         try
         {
-            var context = new ConsumerPluginLoadContext(fullPath);
-            assembly = context.LoadFromAssemblyPath(fullPath);
+            context = new ConsumerPluginLoadContext(fullPath);
+            using var assemblyStream = new MemoryStream(
+                trustResult.AssemblyBytes
+                    ?? throw new InvalidOperationException("Verified consumer bytes are unavailable."),
+                writable: false);
+            assembly = context.LoadFromStream(assemblyStream);
         }
-        catch (Exception ex) when (ex is BadImageFormatException or FileLoadException)
+        catch (Exception ex) when (ex is BadImageFormatException
+                                   or FileLoadException
+                                   or InvalidOperationException
+                                   or DllNotFoundException)
         {
+            context?.Unload();
             return ConsumerIntegrationLoadResult.Failure(
                 $"Consumer assembly '{fullPath}' is not a loadable managed assembly: {ex.Message}");
         }
 
-        return ConsumerIntegrationFactoryResolver.Resolve(GetLoadableTypes(assembly), Path.GetFileName(fullPath));
+        IReadOnlyList<Type> types;
+        try
+        {
+            types = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            context.Unload();
+            return ConsumerIntegrationLoadResult.Failure(
+                $"Consumer assembly '{fullPath}' has unresolved type dependencies: {ex.Message}");
+        }
+
+        var result = ConsumerIntegrationFactoryResolver.Resolve(types, Path.GetFileName(fullPath));
+        if (!result.Succeeded)
+        {
+            context.Unload();
+            return result;
+        }
+
+        return result.AttachLifetime(new ConsumerPluginLifetime(context));
     }
 
     private static bool TryResolveFullPath(string assemblyPath, out string fullPath, out ConsumerIntegrationLoadResult? failure)
@@ -64,20 +110,6 @@ public static class ConsumerIntegrationAssemblyLoader
             failure = ConsumerIntegrationLoadResult.Failure(
                 $"Consumer assembly path '{assemblyPath}' is not a valid path: {ex.Message}");
             return false;
-        }
-    }
-
-    private static IReadOnlyList<Type> GetLoadableTypes(Assembly assembly)
-    {
-        // A plugin assembly may carry types whose own dependencies cannot resolve; reflecting over
-        // those throws. Keep the types that did load so a single resolvable factory is still found.
-        try
-        {
-            return assembly.GetTypes();
-        }
-        catch (ReflectionTypeLoadException ex)
-        {
-            return ex.Types.Where(static type => type is not null).Cast<Type>().ToArray();
         }
     }
 }

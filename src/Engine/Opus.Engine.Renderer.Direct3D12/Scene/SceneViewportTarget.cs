@@ -16,15 +16,24 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// so the UI sampler reads a coherent image; the scene pass transitions in and back out
 /// of <see cref="ResourceStates.RenderTarget"/> internally via the frame graph.
 /// </para></summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only unmanaged descriptor heaps.")]
 public sealed unsafe class SceneViewportTarget : IDisposable
 {
     /// <summary>Eight-bit-per-channel LDR target — matches the swap chain's default colour
     /// format and what <see cref="TonemapPass"/>'s PSO expects to write into.</summary>
     public const Format DefaultFormat = Format.FormatR8G8B8A8Unorm;
 
-    private readonly ID3D12DescriptorHeap* _rtvHeap;
-    private readonly ID3D12DescriptorHeap* _srvHeap;
+    private ID3D12DescriptorHeap* _rtvHeap;
+    private ID3D12DescriptorHeap* _srvHeap;
     private bool _disposed;
+
+    ~SceneViewportTarget()
+    {
+        ReleaseHeaps();
+    }
 
     public SceneViewportTarget(D3D12RhiDevice device, int width, int height, string namePrefix = "scene-viewport")
     {
@@ -41,15 +50,40 @@ public sealed unsafe class SceneViewportTarget : IDisposable
 
         Width = width;
         Height = height;
-        Color = device.CreateGraphicsTexture(new RhiTextureDescription(
-            $"{namePrefix}.color", width, height, 1,
-            RhiTextureFormat.Rgba8Unorm, RhiTextureUsage.ColorTarget | RhiTextureUsage.Sampled));
+        D3D12Texture? color = null;
+        ID3D12DescriptorHeap* rtvHeap = null;
+        ID3D12DescriptorHeap* srvHeap = null;
+        try
+        {
+            color = device.CreateGraphicsTexture(new RhiTextureDescription(
+                $"{namePrefix}.color", width, height, 1,
+                RhiTextureFormat.Rgba8Unorm, RhiTextureUsage.ColorTarget | RhiTextureUsage.Sampled));
+            rtvHeap = device.CreateRtvDescriptorHeap(1u);
+            RtvHandle = device.CreateRenderTargetView(color, rtvHeap, slotIndex: 0u);
+            srvHeap = device.CreateSrvDescriptorHeap(1u);
+            SrvTable = device.CreateShaderResourceView(color, srvHeap, slotIndex: 0u);
 
-        _rtvHeap = device.CreateRtvDescriptorHeap(1u);
-        RtvHandle = device.CreateRenderTargetView(Color, _rtvHeap, slotIndex: 0u);
+            Color = color;
+            _rtvHeap = rtvHeap;
+            _srvHeap = srvHeap;
+            rtvHeap = null;
+            srvHeap = null;
+        }
+        catch
+        {
+            if (srvHeap != null)
+            {
+                srvHeap->Release();
+            }
 
-        _srvHeap = device.CreateSrvDescriptorHeap(1u);
-        SrvTable = device.CreateShaderResourceView(Color, _srvHeap, slotIndex: 0u);
+            if (rtvHeap != null)
+            {
+                rtvHeap->Release();
+            }
+
+            color?.Dispose();
+            throw;
+        }
     }
 
     public int Width { get; }
@@ -75,9 +109,24 @@ public sealed unsafe class SceneViewportTarget : IDisposable
             return;
         }
 
-        _srvHeap->Release();
-        _rtvHeap->Release();
-        Color.Dispose();
         _disposed = true;
+        GC.SuppressFinalize(this);
+        ReleaseHeaps();
+        Color.Dispose();
+    }
+
+    private void ReleaseHeaps()
+    {
+        if (_srvHeap != null)
+        {
+            _srvHeap->Release();
+            _srvHeap = null;
+        }
+
+        if (_rtvHeap != null)
+        {
+            _rtvHeap->Release();
+            _rtvHeap = null;
+        }
     }
 }

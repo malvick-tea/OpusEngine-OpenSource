@@ -32,29 +32,36 @@ public static class TrueTypeCollection
             return null;
         }
 
-        var fontCount = (int)ReadUInt32(collection, 8);
-        if (fontIndex < 0 || fontIndex >= fontCount)
+        var fontCount = ReadUInt32(collection, 8);
+        if (fontIndex < 0 || (uint)fontIndex >= fontCount)
         {
             return null;
         }
 
-        var directoryPointer = CollectionHeaderSize + (fontIndex * 4);
-        return directoryPointer + 4 > collection.Length
+        var directoryPointer = (long)CollectionHeaderSize + ((long)fontIndex * sizeof(uint));
+        return directoryPointer + sizeof(uint) > collection.Length
             ? null
-            : BuildStandaloneFont(collection, (int)ReadUInt32(collection, directoryPointer));
+            : BuildStandaloneFont(collection, ReadUInt32(collection, (int)directoryPointer));
     }
 
-    private static byte[]? BuildStandaloneFont(byte[] ttc, int directoryOffset)
+    private static byte[]? BuildStandaloneFont(byte[] ttc, uint directoryOffsetValue)
     {
-        if (directoryOffset < 0 || directoryOffset + SfntHeaderSize > ttc.Length)
+        if (directoryOffsetValue > int.MaxValue)
+        {
+            return null;
+        }
+
+        var directoryOffset = (int)directoryOffsetValue;
+        if ((long)directoryOffset + SfntHeaderSize > ttc.Length)
         {
             return null;
         }
 
         int tableCount = ReadUInt16(ttc, directoryOffset + 4);
-        var recordsStart = directoryOffset + SfntHeaderSize;
-        var bodyStart = SfntHeaderSize + (tableCount * TableRecordSize);
-        if (recordsStart + (tableCount * TableRecordSize) > ttc.Length)
+        var recordsStart = (long)directoryOffset + SfntHeaderSize;
+        var recordsBytes = (long)tableCount * TableRecordSize;
+        var bodyStart = (long)SfntHeaderSize + recordsBytes;
+        if (recordsStart + recordsBytes > ttc.Length)
         {
             return null;
         }
@@ -65,19 +72,29 @@ public static class TrueTypeCollection
         var totalSize = bodyStart;
         for (var i = 0; i < tableCount; i++)
         {
-            var record = recordsStart + (i * TableRecordSize);
-            var dataOffset = (int)ReadUInt32(ttc, record + 8);
-            var dataLength = (int)ReadUInt32(ttc, record + 12);
-            if (dataOffset < 0 || dataLength < 0 || dataOffset + dataLength > ttc.Length)
+            var record = checked((int)(recordsStart + ((long)i * TableRecordSize)));
+            var dataOffset = ReadUInt32(ttc, record + 8);
+            var dataLength = ReadUInt32(ttc, record + 12);
+            if ((long)dataOffset + dataLength > ttc.Length)
             {
                 return null;
             }
 
-            placedOffsets[i] = totalSize;
+            if (totalSize > int.MaxValue)
+            {
+                return null;
+            }
+
+            placedOffsets[i] = (int)totalSize;
             totalSize += Align4(dataLength);
         }
 
-        var output = new byte[totalSize];
+        if (totalSize > int.MaxValue)
+        {
+            return null;
+        }
+
+        var output = new byte[(int)totalSize];
 
         // The sfnt header (version + table count + search hints) carries over verbatim.
         Array.Copy(ttc, directoryOffset, output, 0, SfntHeaderSize);
@@ -87,9 +104,9 @@ public static class TrueTypeCollection
         // checkSumAdjustment goes stale, which stb_truetype never verifies.
         for (var i = 0; i < tableCount; i++)
         {
-            var source = recordsStart + (i * TableRecordSize);
-            var dataOffset = (int)ReadUInt32(ttc, source + 8);
-            var dataLength = (int)ReadUInt32(ttc, source + 12);
+            var source = checked((int)(recordsStart + ((long)i * TableRecordSize)));
+            var dataOffset = checked((int)ReadUInt32(ttc, source + 8));
+            var dataLength = checked((int)ReadUInt32(ttc, source + 12));
             var destination = SfntHeaderSize + (i * TableRecordSize);
 
             Array.Copy(ttc, source, output, destination, 8);   // tag + checksum, unchanged
@@ -101,7 +118,7 @@ public static class TrueTypeCollection
         return output;
     }
 
-    private static int Align4(int value) => (value + 3) & ~3;
+    private static long Align4(uint value) => ((long)value + 3) & ~3L;
 
     private static uint ReadUInt32(byte[] data, int offset) =>
         ((uint)data[offset] << 24) | ((uint)data[offset + 1] << 16) |

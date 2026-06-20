@@ -48,18 +48,16 @@
         CA1859     — concrete types over interfaces in fields; clarity wins
         CA2007     — ConfigureAwait; we control SyncContext at host boundary
         MA0006     — string.Equals over ==; record == is compiler-generated, not equality op
-        MA0026     — TODO comments allowed during pre-release work
         MA0048     — filename matches type; same as SA1649
         MA0051     — method too long; readable composers are fine
         MA0053     — class should be sealed; not always our intent
+
+      MA0026 is intentionally NOT suppressed: TODO comments are a defect under
+      the senior-grade code review standard. A pre-release that needs a TODO
+      must open a tracked issue instead of leaving an in-source marker that
+      compiles silently.
     -->
-    <NoWarn>$(NoWarn);SA0001;SA1101;SA1200;SA1309;SA1311;SA1413;SA1601;SA1602;SA1614;SA1615;SA1623;SA1629;SA1633;SA1642;SA1649;CA1000;CA1707;CA1716;CA1812;CA1848;CA1859;CA2007;MA0006;MA0026;MA0048;MA0051;MA0053</NoWarn>
-    <!--
-      M4 clean-rebuild compatibility: these rules fire on extraction-era code
-      after central Opus 0.1 metadata forces a full rebuild. Keep the debt
-      explicit until lead schedules a focused analyzer cleanup pass.
-    -->
-    <NoWarn>$(NoWarn);CS0618;SA1009;SA1025;SA1028;SA1108;SA1117;SA1201;SA1202;SA1204;SA1211;SA1214;SA1306;SA1313;SA1401;SA1402;SA1407;SA1503;SA1515;SA1516;SA1519;CA1051;CA1510;CA1513;CA1711;CA1822;CA1825;CA1861;MA0004;MA0005;MA0008;MA0015;MA0016;MA0025;MA0046;MA0099;RCS1194;RCS1242</NoWarn>
+    <NoWarn>$(NoWarn);SA0001;SA1101;SA1200;SA1309;SA1311;SA1413;SA1601;SA1602;SA1614;SA1615;SA1623;SA1629;SA1633;SA1642;SA1649;CA1000;CA1707;CA1716;CA1812;CA1848;CA1859;CA2007;MA0006;MA0048;MA0051;MA0053</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Label="ProjectLayout">

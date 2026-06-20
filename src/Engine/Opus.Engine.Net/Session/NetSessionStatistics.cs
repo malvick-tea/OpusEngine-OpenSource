@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace Opus.Engine.Net.Session;
 
@@ -14,6 +15,7 @@ internal sealed class NetSessionStatistics
 
     private readonly NetSessionRttAggregator _rtt;
     private readonly NetSessionRateAggregator _rate = new();
+    private readonly object _aggregatorSync = new();
 
     private long _peersAccepted;
     private long _peersDisconnected;
@@ -35,31 +37,43 @@ internal sealed class NetSessionStatistics
         _rtt = new NetSessionRttAggregator(rttWindowCapacity);
     }
 
-    public void RecordPeerAccepted() => _peersAccepted++;
+    public void RecordPeerAccepted() => Interlocked.Increment(ref _peersAccepted);
 
-    public void RecordPeerDisconnected() => _peersDisconnected++;
+    public void RecordPeerDisconnected() => Interlocked.Increment(ref _peersDisconnected);
 
     public void RecordPacketReceived(int byteCount)
     {
-        _packetsReceived++;
-        _bytesReceived += byteCount;
+        Interlocked.Increment(ref _packetsReceived);
+        Interlocked.Add(ref _bytesReceived, byteCount);
     }
 
     public void RecordPacketSent(int byteCount)
     {
-        _packetsSent++;
-        _bytesSent += byteCount;
+        Interlocked.Increment(ref _packetsSent);
+        Interlocked.Add(ref _bytesSent, byteCount);
     }
 
-    public void RecordSendDropped() => _packetsSendDropped++;
+    public void RecordSendDropped() => Interlocked.Increment(ref _packetsSendDropped);
 
-    public void RecordReconnectAttempt() => _reconnectAttempts++;
+    public void RecordReconnectAttempt() => Interlocked.Increment(ref _reconnectAttempts);
 
-    public void RecordQueuedPayloadDropped() => _queuedPayloadsDropped++;
+    public void RecordQueuedPayloadDropped() => Interlocked.Increment(ref _queuedPayloadsDropped);
 
-    public void RecordRtt(TimeSpan rtt) => _rtt.Record(rtt);
+    public void RecordRtt(TimeSpan rtt)
+    {
+        lock (_aggregatorSync)
+        {
+            _rtt.Record(rtt);
+        }
+    }
 
-    public void ResetRateBaseline() => _rate.Reset();
+    public void ResetRateBaseline()
+    {
+        lock (_aggregatorSync)
+        {
+            _rate.Reset();
+        }
+    }
 
     public NetSessionStatisticsSnapshot Snapshot(
         int connectedPeerCount,
@@ -67,25 +81,36 @@ internal sealed class NetSessionStatistics
         DateTimeOffset capturedAtUtc)
     {
         var nowUtc = capturedAtUtc.ToUniversalTime();
-        var rate = _rate.Sample(
-            nowUtc,
-            _packetsReceived,
-            _packetsSent,
-            _bytesReceived,
-            _bytesSent);
+        var packetsReceived = Interlocked.Read(ref _packetsReceived);
+        var packetsSent = Interlocked.Read(ref _packetsSent);
+        var bytesReceived = Interlocked.Read(ref _bytesReceived);
+        var bytesSent = Interlocked.Read(ref _bytesSent);
+        NetSessionRateSnapshot rate;
+        NetSessionRttSummary rtt;
+        lock (_aggregatorSync)
+        {
+            rate = _rate.Sample(
+                nowUtc,
+                packetsReceived,
+                packetsSent,
+                bytesReceived,
+                bytesSent);
+            rtt = _rtt.BuildSummary();
+        }
+
         return new NetSessionStatisticsSnapshot(
             ConnectedPeerCount: connectedPeerCount,
-            PeersAcceptedTotal: _peersAccepted,
-            PeersDisconnectedTotal: _peersDisconnected,
-            PacketsReceived: _packetsReceived,
-            PacketsSent: _packetsSent,
-            PacketsSendDropped: _packetsSendDropped,
-            BytesReceived: _bytesReceived,
-            BytesSent: _bytesSent,
-            ReconnectAttempts: _reconnectAttempts,
-            QueuedPayloadsDropped: _queuedPayloadsDropped,
+            PeersAcceptedTotal: Interlocked.Read(ref _peersAccepted),
+            PeersDisconnectedTotal: Interlocked.Read(ref _peersDisconnected),
+            PacketsReceived: packetsReceived,
+            PacketsSent: packetsSent,
+            PacketsSendDropped: Interlocked.Read(ref _packetsSendDropped),
+            BytesReceived: bytesReceived,
+            BytesSent: bytesSent,
+            ReconnectAttempts: Volatile.Read(ref _reconnectAttempts),
+            QueuedPayloadsDropped: Interlocked.Read(ref _queuedPayloadsDropped),
             TransportGuards: transportGuards,
-            Rtt: _rtt.BuildSummary(),
+            Rtt: rtt,
             Rate: rate,
             ObservedAtUtc: nowUtc);
     }

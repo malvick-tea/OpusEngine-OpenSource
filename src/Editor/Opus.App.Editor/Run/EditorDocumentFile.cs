@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 
 namespace Opus.App.Editor.Run;
 
@@ -14,8 +15,6 @@ namespace Opus.App.Editor.Run;
 /// </summary>
 internal static class EditorDocumentFile
 {
-    private const string TempSuffix = ".tmp";
-
     public static Result<T> Load<T>(string path, Func<string, Result<T>> deserialize, string label)
         where T : class
     {
@@ -44,11 +43,7 @@ internal static class EditorDocumentFile
         try
         {
             string fullPath = Path.GetFullPath(path);
-            string directory = Path.GetDirectoryName(fullPath) ?? ".";
-            Directory.CreateDirectory(directory);
-            string temp = fullPath + TempSuffix;
-            File.WriteAllText(temp, json);
-            File.Move(temp, fullPath, overwrite: true);
+            AtomicFile.WriteAllText(fullPath, json);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {

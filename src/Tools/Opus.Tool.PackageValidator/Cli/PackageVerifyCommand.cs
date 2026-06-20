@@ -33,7 +33,7 @@ internal static class PackageVerifyCommand
                 var request = new PackageArchiveVerifyRequest(options.ArchivePath)
                 {
                     PublicKey = publicKey,
-                    RequireSignature = options.RequireSignature,
+                    RequireSignature = !options.IntegrityOnly,
                 };
                 var result = PackageArchiveVerifier.Verify(request);
                 var localizer = PackageDiagnosticLocalizer.Load(options.Locale);
@@ -60,7 +60,7 @@ internal static class PackageVerifyCommand
 
     private static bool TryParse(string[] args, TextWriter stderr, out VerifyOptions options)
     {
-        options = new VerifyOptions(string.Empty, null, RequireSignature: false, CliLocales.Default);
+        options = new VerifyOptions(string.Empty, null, IntegrityOnly: false, CliLocales.Default);
         if (args.Length < 2)
         {
             WriteUsage(stderr);
@@ -76,7 +76,7 @@ internal static class PackageVerifyCommand
         }
 
         string? keyPath = null;
-        var requireSignature = false;
+        var integrityOnly = false;
         var locale = CliLocales.Default;
         for (var i = 2; i < args.Length; i++)
         {
@@ -94,7 +94,12 @@ internal static class PackageVerifyCommand
 
             if (string.Equals(arg, "--require-signature", StringComparison.Ordinal))
             {
-                requireSignature = true;
+                continue;
+            }
+
+            if (string.Equals(arg, "--integrity-only", StringComparison.Ordinal))
+            {
+                integrityOnly = true;
                 continue;
             }
 
@@ -120,21 +125,29 @@ internal static class PackageVerifyCommand
             return false;
         }
 
-        if (requireSignature && keyPath is null)
+        if (integrityOnly && keyPath is not null)
         {
-            stderr.WriteLine("--require-signature needs --key <public-key.pem>.");
+            stderr.WriteLine("--integrity-only cannot be combined with --key.");
             WriteUsage(stderr);
             return false;
         }
 
-        options = new VerifyOptions(archivePath, keyPath, requireSignature, locale);
+        if (!integrityOnly && keyPath is null)
+        {
+            stderr.WriteLine(
+                "verify requires --key <trusted-public-key.pem>; use --integrity-only only for non-executable development artifacts.");
+            WriteUsage(stderr);
+            return false;
+        }
+
+        options = new VerifyOptions(archivePath, keyPath, integrityOnly, locale);
         return true;
     }
 
     private static void WriteUsage(TextWriter stderr) =>
         stderr.WriteLine(
-            "Usage: Opus.Tool.PackageValidator verify <package.opkg> [--key <public-key.pem>] [--require-signature] [--locale en|ru]");
+            "Usage: Opus.Tool.PackageValidator verify <package.opkg> (--key <trusted-public-key.pem> | --integrity-only) [--locale en|ru]");
 
     private sealed record VerifyOptions(
-        string ArchivePath, string? KeyPath, bool RequireSignature, string Locale);
+        string ArchivePath, string? KeyPath, bool IntegrityOnly, string Locale);
 }

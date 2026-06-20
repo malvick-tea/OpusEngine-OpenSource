@@ -50,11 +50,20 @@ public sealed class PackagePackVerifyCommandTests
         try
         {
             var content = WriteContent(root.FullName);
+            var (privatePem, publicPem) = WriteKeyPair(root.FullName);
             var archivePath = Path.Combine(root.FullName, "pkg.opkg");
             var unpackDirectory = Path.Combine(root.FullName, "unpacked");
 
-            RunExpect(PackageValidatorExitCodes.Success, PackArgs(content, archivePath));
-            RunExpect(PackageValidatorExitCodes.Success, "unpack", archivePath, unpackDirectory);
+            RunExpect(
+                PackageValidatorExitCodes.Success,
+                PackArgs(content, archivePath, "--key", privatePem, "--key-id", "unpack-test"));
+            RunExpect(
+                PackageValidatorExitCodes.Success,
+                "unpack",
+                archivePath,
+                unpackDirectory,
+                "--key",
+                publicPem);
             RunExpect(PackageValidatorExitCodes.Success, "validate", unpackDirectory);
         }
         finally
@@ -97,7 +106,9 @@ public sealed class PackagePackVerifyCommandTests
             using var stderr = new StringWriter();
 
             var exit = PackageValidatorCommand.Run(
-                new[] { "verify", Path.Combine(root.FullName, "nope.opkg") }, stdout, stderr);
+                new[] { "verify", Path.Combine(root.FullName, "nope.opkg"), "--integrity-only" },
+                stdout,
+                stderr);
 
             exit.Should().Be(PackageValidatorExitCodes.ValidationFailed);
             stderr.ToString().Should().Contain("OPKG-ARC-001");
@@ -118,7 +129,7 @@ public sealed class PackagePackVerifyCommandTests
             new[] { "verify", "some.opkg", "--require-signature" }, stdout, stderr);
 
         exit.Should().Be(PackageValidatorExitCodes.InvalidArguments);
-        stderr.ToString().Should().Contain("--require-signature needs --key");
+        stderr.ToString().Should().Contain("verify requires --key");
     }
 
     [Fact]
@@ -134,10 +145,40 @@ public sealed class PackagePackVerifyCommandTests
 
             using var stdout = new StringWriter();
             using var stderr = new StringWriter();
-            var exit = PackageValidatorCommand.Run(new[] { "verify", archivePath }, stdout, stderr);
+            var exit = PackageValidatorCommand.Run(
+                new[] { "verify", archivePath, "--integrity-only" },
+                stdout,
+                stderr);
 
             exit.Should().Be(PackageValidatorExitCodes.ValidationFailed);
             stderr.ToString().Should().Contain("OPKG-FILE-003");
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Unpack_rejects_an_unsigned_archive()
+    {
+        var root = Directory.CreateTempSubdirectory("opus-pack-cli-");
+        try
+        {
+            var content = WriteContent(root.FullName);
+            var (_, publicPem) = WriteKeyPair(root.FullName);
+            var archivePath = Path.Combine(root.FullName, "unsigned.opkg");
+            RunExpect(PackageValidatorExitCodes.Success, PackArgs(content, archivePath));
+
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            var exit = PackageValidatorCommand.Run(
+                new[] { "unpack", archivePath, Path.Combine(root.FullName, "out"), "--key", publicPem },
+                stdout,
+                stderr);
+
+            exit.Should().Be(PackageValidatorExitCodes.ValidationFailed);
+            stderr.ToString().Should().Contain("OPKG-SIG-001");
         }
         finally
         {

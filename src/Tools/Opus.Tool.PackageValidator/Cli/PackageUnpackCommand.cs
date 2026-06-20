@@ -18,13 +18,30 @@ internal static class PackageUnpackCommand
 
         try
         {
-            var result = OpusPackageExtractor.Extract(
-                options.ArchivePath, options.TargetDirectory, OpusPackageArchiveLimits.Default);
-            var localizer = PackageDiagnosticLocalizer.Load(options.Locale);
-            CliDiagnosticReporter.Report(result.Diagnostics, localizer, result.Succeeded ? stdout : stderr);
-            if (!result.Succeeded)
+            if (!PackagePemKeys.TryLoad(options.KeyPath, out var publicKey, out var keyError))
             {
-                return PackageValidatorExitCodes.ValidationFailed;
+                stderr.WriteLine($"Failed to load public key: {keyError}");
+                return PackageValidatorExitCodes.ToolFailure;
+            }
+
+            using (publicKey)
+            {
+                var result = OpusPackageExtractor.Extract(
+                    new PackageArchiveVerifyRequest(options.ArchivePath)
+                    {
+                        PublicKey = publicKey,
+                        RequireSignature = true,
+                    },
+                    options.TargetDirectory);
+                var localizer = PackageDiagnosticLocalizer.Load(options.Locale);
+                CliDiagnosticReporter.Report(
+                    result.Diagnostics,
+                    localizer,
+                    result.Succeeded ? stdout : stderr);
+                if (!result.Succeeded)
+                {
+                    return PackageValidatorExitCodes.ValidationFailed;
+                }
             }
 
             stdout.WriteLine(
@@ -45,7 +62,7 @@ internal static class PackageUnpackCommand
 
     private static bool TryParse(string[] args, TextWriter stderr, out UnpackOptions options)
     {
-        options = new UnpackOptions(string.Empty, string.Empty, CliLocales.Default);
+        options = new UnpackOptions(string.Empty, string.Empty, string.Empty, CliLocales.Default);
         if (args.Length < 3)
         {
             WriteUsage(stderr);
@@ -62,10 +79,22 @@ internal static class PackageUnpackCommand
             return false;
         }
 
+        string? keyPath = null;
         var locale = CliLocales.Default;
         for (var i = 3; i < args.Length; i++)
         {
             var arg = args[i];
+            if (CliOptionReader.TryReadOption(arg, "--key", args, ref i, stderr, out var keyValue))
+            {
+                if (keyValue is null)
+                {
+                    return false;
+                }
+
+                keyPath = keyValue;
+                continue;
+            }
+
             if (CliOptionReader.TryReadOption(arg, "--locale", args, ref i, stderr, out var localeValue))
             {
                 if (localeValue is null)
@@ -88,13 +117,24 @@ internal static class PackageUnpackCommand
             return false;
         }
 
-        options = new UnpackOptions(archivePath, targetDirectory, locale);
+        if (keyPath is null)
+        {
+            stderr.WriteLine("unpack requires --key <trusted-public-key.pem>.");
+            WriteUsage(stderr);
+            return false;
+        }
+
+        options = new UnpackOptions(archivePath, targetDirectory, keyPath, locale);
         return true;
     }
 
     private static void WriteUsage(TextWriter stderr) =>
         stderr.WriteLine(
-            "Usage: Opus.Tool.PackageValidator unpack <package.opkg> <target-dir> [--locale en|ru]");
+            "Usage: Opus.Tool.PackageValidator unpack <package.opkg> <target-dir> --key <trusted-public-key.pem> [--locale en|ru]");
 
-    private sealed record UnpackOptions(string ArchivePath, string TargetDirectory, string Locale);
+    private sealed record UnpackOptions(
+        string ArchivePath,
+        string TargetDirectory,
+        string KeyPath,
+        string Locale);
 }

@@ -114,8 +114,13 @@ dotnet run -c Release --project .\src\Apps\Opus.App.OpusAlpha\Opus.App.OpusAlpha
 Load an external consumer integration assembly:
 
 ```powershell
+$env:OPUS_CONSUMER_TRUST_KEY = "C:\keys\consumer-publisher-public.pem"
 dotnet run -c Release --project .\src\Apps\Opus.App.OpusAlpha\Opus.App.OpusAlpha.csproj -- --consumer <path-to-assembly>
 ```
+
+The loader requires a P-256 signature sidecar at `<assembly>.sig`, loads the
+verified bytes rather than reopening the path, and rejects private managed
+dependencies and unmanaged DLL loading.
 
 ## Run The Editor
 
@@ -172,9 +177,15 @@ Common commands:
 dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- validate <package-root>
 dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- generate <content-root> --id <id> --name <name> --version <semver>
 dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- pack <content-root> --output <package.opkg>
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify <package.opkg>
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack <package.opkg> <target-dir>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify <package.opkg> --key <trusted-public-key.pem>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack <package.opkg> <target-dir> --key <trusted-public-key.pem>
 ```
+
+`verify` and `unpack` fail closed on package trust. Use
+`verify <package.opkg> --integrity-only` only for non-executable development
+artifacts where publisher identity is intentionally out of scope. `unpack`
+requires an empty target directory so stale, unverified files cannot survive
+beside authenticated package content.
 
 ## Design Principles
 

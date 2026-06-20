@@ -90,19 +90,35 @@ public static class D3D12GltfSceneLoader
 
         var primitives = new List<GpuPrimitive>(meshes.Length);
         var slices = new GpuMeshSlice[meshes.Length];
-        for (var m = 0; m < meshes.Length; m++)
+        try
         {
-            var start = primitives.Count;
-            var mesh = meshes[m];
-            for (var p = 0; p < mesh.Primitives.Length; p++)
+            for (var m = 0; m < meshes.Length; m++)
             {
-                primitives.Add(UploadPrimitive(device, mesh.Primitives[p], $"{namePrefix}.mesh{m}.prim{p}"));
+                var start = primitives.Count;
+                var mesh = meshes[m];
+                for (var p = 0; p < mesh.Primitives.Length; p++)
+                {
+                    primitives.Add(UploadPrimitive(
+                        device,
+                        mesh.Primitives[p],
+                        $"{namePrefix}.mesh{m}.prim{p}"));
+                }
+
+                slices[m] = new GpuMeshSlice(start, primitives.Count - start);
             }
 
-            slices[m] = new GpuMeshSlice(start, primitives.Count - start);
+            return new GpuScene(primitives.ToArray(), slices);
         }
+        catch
+        {
+            foreach (var primitive in primitives)
+            {
+                primitive.Ib.Dispose();
+                primitive.Vb.Dispose();
+            }
 
-        return new GpuScene(primitives.ToArray(), slices);
+            throw;
+        }
     }
 
     /// <summary>Conservative scene-wide AABB: union of every primitive's
@@ -173,17 +189,31 @@ public static class D3D12GltfSceneLoader
         var verts = PackVertices(mesh);
         var vb = device.CreateGraphicsBuffer(new RhiBufferDescription(
             $"{debugName}.verts",
-            verts.Length * Marshal.SizeOf<GltfVertexPosNormalUv>(),
+            checked(verts.Length * Marshal.SizeOf<GltfVertexPosNormalUv>()),
             RhiBufferUsage.Vertex));
-        BufferUploadHelper.WriteStructs(vb, verts);
-
-        var ib = device.CreateGraphicsBuffer(new RhiBufferDescription(
-            $"{debugName}.indices",
-            mesh.Indices.Length * sizeof(uint),
-            RhiBufferUsage.Index));
-        BufferUploadHelper.WriteStructs(ib, mesh.Indices);
-
-        return new GpuPrimitive(vb, ib, (uint)mesh.Indices.Length, primitive.MaterialIndex);
+        try
+        {
+            BufferUploadHelper.WriteStructs(vb, verts);
+            var ib = device.CreateGraphicsBuffer(new RhiBufferDescription(
+                $"{debugName}.indices",
+                checked(mesh.Indices.Length * sizeof(uint)),
+                RhiBufferUsage.Index));
+            try
+            {
+                BufferUploadHelper.WriteStructs(ib, mesh.Indices);
+                return new GpuPrimitive(vb, ib, (uint)mesh.Indices.Length, primitive.MaterialIndex);
+            }
+            catch
+            {
+                ib.Dispose();
+                throw;
+            }
+        }
+        catch
+        {
+            vb.Dispose();
+            throw;
+        }
     }
 
     private static GltfVertexPosNormalUv[] PackVertices(MeshData mesh)

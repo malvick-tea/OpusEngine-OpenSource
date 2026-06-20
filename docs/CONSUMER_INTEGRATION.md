@@ -55,16 +55,25 @@ the host decides how to adapt that data to the current backend.
 Run the alpha host with a consumer assembly:
 
 ```powershell
+$env:OPUS_CONSUMER_TRUST_KEY = "C:\keys\consumer-publisher-public.pem"
 dotnet run -c Release --project .\src\Apps\Opus.App.OpusAlpha\Opus.App.OpusAlpha.csproj -- --consumer <path-to-assembly>
 ```
+
+The public key must be P-256. The assembly must have a sibling
+`<path-to-assembly>.sig` containing its ECDSA signature. Verification reads the
+assembly once and the load context consumes those exact verified bytes. The
+consumer context is collectible, rejects private managed dependencies, and
+denies unmanaged DLL resolution.
 
 Load flow:
 
 ```text
 ConsumerIntegrationAssemblyLoader
   -> resolve full path
+  -> read assembly and signature under bounded sizes
+  -> verify ECDSA P-256 signature
   -> ConsumerPluginLoadContext
-  -> load assembly
+  -> load verified bytes
   -> get loadable types
   -> ConsumerIntegrationFactoryResolver
   -> create factory
@@ -210,9 +219,9 @@ Check in this order:
 7. `CreateIntegration()` succeeds.
 8. The returned integration passes contract validation.
 
-If reflection cannot load every type, the loader keeps the types that did load.
-This allows a valid factory to be found even when unrelated types in the assembly
-have missing dependencies.
+If reflection cannot load every type, the loader rejects the plugin. A partially
+resolved assembly is not allowed to execute through a subset of its declared
+types.
 
 ## Changing The Contract
 

@@ -22,6 +22,7 @@ internal static class OpusPackageArchiveStructure
     {
         entriesByName = new Dictionary<string, ZipArchiveEntry>(StringComparer.Ordinal);
         payloadEntryNames = new List<string>();
+        var portableEntryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         var startErrors = CountErrors(diagnostics);
         if (zip.Entries.Count > limits.MaxEntryCount)
@@ -45,7 +46,13 @@ internal static class OpusPackageArchiveStructure
                 continue; // directory marker entry; carries no payload
             }
 
-            if (!ValidateEntry(entry, limits, diagnostics, entriesByName, payloadEntryNames))
+            if (!ValidateEntry(
+                    entry,
+                    limits,
+                    diagnostics,
+                    entriesByName,
+                    portableEntryNames,
+                    payloadEntryNames))
             {
                 continue;
             }
@@ -64,6 +71,7 @@ internal static class OpusPackageArchiveStructure
         OpusPackageArchiveLimits limits,
         List<PackageDiagnostic> diagnostics,
         Dictionary<string, ZipArchiveEntry> entriesByName,
+        HashSet<string> portableEntryNames,
         List<string> payloadEntryNames)
     {
         if (!PackageRelativePath.TryCreate(entry.FullName, out var path, out var reason))
@@ -85,6 +93,18 @@ internal static class OpusPackageArchiveStructure
                 $"Archive declares entry '{path.Value}' more than once.",
                 "Re-pack the archive without duplicate entries.",
                 "package.archive.duplicateEntry",
+                ("entry", path.Value)));
+            return false;
+        }
+
+        if (!portableEntryNames.Add(path.Value))
+        {
+            entriesByName.Remove(path.Value);
+            diagnostics.Add(Error(
+                PackageDiagnosticCode.ArchiveMalformed,
+                $"Archive entry '{path.Value}' collides by case with another entry.",
+                "Re-pack the archive with names that remain unique on case-insensitive filesystems.",
+                "package.archive.caseCollision",
                 ("entry", path.Value)));
             return false;
         }

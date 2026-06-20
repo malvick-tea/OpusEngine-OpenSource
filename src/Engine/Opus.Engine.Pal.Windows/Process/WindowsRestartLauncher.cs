@@ -30,7 +30,7 @@ public sealed class WindowsRestartLauncher : ICrashRestartLauncher
 
         try
         {
-            SystemProcess.Start(new ProcessStartInfo
+            using var process = SystemProcess.Start(new ProcessStartInfo
             {
                 FileName = exePath,
                 UseShellExecute = false,

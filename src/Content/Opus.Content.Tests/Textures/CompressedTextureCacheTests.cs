@@ -104,6 +104,6 @@ public sealed class CompressedTextureCacheTests : IDisposable
             tail[i] = (byte)(i + 1);
         }
 
-        return new CompressedTexture(8, 8, BlockCompressionFormat.Bc7, new[] { new byte[16], tail });
+        return new CompressedTexture(8, 8, BlockCompressionFormat.Bc7, new[] { new byte[64], tail });
     }
 }

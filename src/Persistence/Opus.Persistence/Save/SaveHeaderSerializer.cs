@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using Opus.Foundation;
 
@@ -27,12 +28,53 @@ namespace Opus.Persistence;
 /// </remarks>
 public static class SaveHeaderSerializer
 {
-    public static byte[] WriteFrame<T>(SaveHeader header, T body, IBinaryCodec codec)
+    public const int AuthenticationTagBytes = 32;
+    public const int MinimumAuthenticationKeyBytes = 32;
+    public const int MaxFrameBytes = 64 * 1024 * 1024;
+
+    /// <summary>Default HKDF-Expand info label used when a caller does not
+    /// supply an explicit domain. Keeping the legacy path means old tests and
+    /// any external tooling that calls <see cref="WriteFrame{T}"/> directly
+    /// continue to round-trip; new callers should pass a per-blob domain so
+    /// the same install key cannot be replayed across blob types.</summary>
+    public static readonly byte[] DefaultDomain = Encoding.UTF8.GetBytes("Opus.Save.v1");
+
+    public static byte[] WriteFrame<T>(
+        SaveHeader header,
+        T body,
+        IBinaryCodec codec,
+        ReadOnlySpan<byte> authenticationKey)
+        => WriteFrame(header, body, codec, authenticationKey, DefaultDomain);
+
+    /// <summary>Serialises <paramref name="header"/> + <paramref name="body"/>
+    /// and MACs the bytes with an HKDF-Expand sub-key derived from
+    /// <paramref name="authenticationKey"/> scoped to <paramref name="domain"/>.
+    /// Domain separation prevents the same install key from validating two
+    /// different blob types — a tampered settings blob cannot be replayed as a
+    /// progress blob, and vice versa, because the derived MAC keys are
+    /// independent even though the wrapping key is identical.</summary>
+    public static byte[] WriteFrame<T>(
+        SaveHeader header,
+        T body,
+        IBinaryCodec codec,
+        ReadOnlySpan<byte> authenticationKey,
+        ReadOnlySpan<byte> domain)
     {
         ArgumentNullException.ThrowIfNull(codec);
         ArgumentException.ThrowIfNullOrEmpty(header.Magic);
+        ValidateAuthenticationKey(authenticationKey);
+        if (domain.IsEmpty)
+        {
+            throw new ArgumentException("Save frame domain must not be empty.", nameof(domain));
+        }
 
         var bodyBytes = codec.Serialize(body);
+        if (bodyBytes.Length > MaxFrameBytes - AuthenticationTagBytes)
+        {
+            throw new InvalidDataException(
+                $"Serialized save body exceeds the {MaxFrameBytes}-byte frame limit.");
+        }
+
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         WriteLengthPrefixedString(writer, header.Magic);
@@ -41,23 +83,93 @@ public static class SaveHeaderSerializer
         WriteInt64(writer, header.CreatedAtUnixMs);
         WriteLengthPrefixedBytes(writer, bodyBytes);
         writer.Flush();
-        return stream.ToArray();
+        if (stream.Length > MaxFrameBytes - AuthenticationTagBytes)
+        {
+            throw new InvalidDataException(
+                $"Save frame exceeds the {MaxFrameBytes}-byte limit.");
+        }
+
+        var authenticatedBytes = stream.ToArray();
+        Span<byte> macKey = stackalloc byte[AuthenticationTagBytes];
+        HKDF.Expand(HashAlgorithmName.SHA256, authenticationKey, macKey.Length, domain, macKey);
+        var output = new byte[authenticatedBytes.Length + AuthenticationTagBytes];
+        authenticatedBytes.CopyTo(output, 0);
+        HMACSHA256.HashData(
+            macKey,
+            authenticatedBytes,
+            output.AsSpan(authenticatedBytes.Length));
+        CryptographicOperations.ZeroMemory(macKey);
+        return output;
     }
 
-    public static Result<(SaveHeader Header, T Body)> ReadFrame<T>(byte[] frame, IBinaryCodec codec)
+    public static Result<(SaveHeader Header, T Body)> ReadFrame<T>(
+        byte[] frame,
+        IBinaryCodec codec,
+        ReadOnlySpan<byte> authenticationKey)
+        => ReadFrame(frame, codec, authenticationKey, DefaultDomain);
+
+    /// <summary>Counterpart to <see cref="WriteFrame{T}(SaveHeader, T, IBinaryCodec, ReadOnlySpan{byte}, ReadOnlySpan{byte})"/>.
+    /// Derives the same HKDF sub-key scoped to <paramref name="domain"/> and
+    /// verifies the trailing HMAC-SHA256 tag in constant time before any of
+    /// the frame bytes are parsed.</summary>
+    public static Result<(SaveHeader Header, T Body)> ReadFrame<T>(
+        byte[] frame,
+        IBinaryCodec codec,
+        ReadOnlySpan<byte> authenticationKey,
+        ReadOnlySpan<byte> domain)
     {
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(codec);
+        ValidateAuthenticationKey(authenticationKey);
+        if (domain.IsEmpty)
+        {
+            return Result<(SaveHeader, T)>.Err(
+                ErrorCode.SaveCorrupt,
+                "Save frame domain must not be empty.");
+        }
+
+        if (frame.Length < AuthenticationTagBytes || frame.Length > MaxFrameBytes)
+        {
+            return Result<(SaveHeader, T)>.Err(
+                ErrorCode.SaveCorrupt,
+                "Save frame length is outside the authenticated format limits.");
+        }
+
+        var authenticatedLength = frame.Length - AuthenticationTagBytes;
+        var authenticatedBytes = frame.AsSpan(0, authenticatedLength);
+        Span<byte> macKey = stackalloc byte[AuthenticationTagBytes];
+        HKDF.Expand(HashAlgorithmName.SHA256, authenticationKey, macKey.Length, domain, macKey);
+        Span<byte> expectedTag = stackalloc byte[AuthenticationTagBytes];
+        HMACSHA256.HashData(macKey, authenticatedBytes, expectedTag);
+        CryptographicOperations.ZeroMemory(macKey);
+        if (!CryptographicOperations.FixedTimeEquals(
+                expectedTag,
+                frame.AsSpan(authenticatedLength, AuthenticationTagBytes)))
+        {
+            return Result<(SaveHeader, T)>.Err(
+                ErrorCode.SaveCorrupt,
+                "Save frame authentication failed.");
+        }
 
         try
         {
-            using var stream = new MemoryStream(frame, writable: false);
+            using var stream = new MemoryStream(
+                frame,
+                index: 0,
+                count: authenticatedLength,
+                writable: false);
             using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
             var magic = ReadLengthPrefixedString(reader);
             var schemaVersion = ReadInt32(reader);
             var appVersion = ReadAppVersion(reader);
             var createdAt = ReadInt64(reader);
             var bodyBytes = ReadLengthPrefixedBytes(reader);
+            if (stream.Position != stream.Length)
+            {
+                return Result<(SaveHeader, T)>.Err(
+                    ErrorCode.SaveCorrupt,
+                    "Save frame contains trailing structure.");
+            }
 
             var header = new SaveHeader(magic, schemaVersion, appVersion, createdAt);
             if (!header.IsRecognisedMagic)
@@ -75,6 +187,16 @@ public static class SaveHeaderSerializer
         {
             return Result<(SaveHeader, T)>.Err(new Error(
                 ErrorCode.SaveCorrupt, "Save frame is structurally malformed.", ex));
+        }
+    }
+
+    private static void ValidateAuthenticationKey(ReadOnlySpan<byte> authenticationKey)
+    {
+        if (authenticationKey.Length < MinimumAuthenticationKeyBytes)
+        {
+            throw new ArgumentException(
+                $"Save authentication key must contain at least {MinimumAuthenticationKeyBytes} bytes.",
+                nameof(authenticationKey));
         }
     }
 

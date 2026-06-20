@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -64,6 +65,7 @@ public sealed partial class UdpServerTransport
         var now = Environment.TickCount64;
         var deadlineMs = _options.DeadlineDuration.TotalMilliseconds;
         var heartbeatMs = _options.HeartbeatInterval.TotalMilliseconds;
+        var halfOpenDeadlineMs = _options.WelcomeConfirmTimeout.TotalMilliseconds;
         UdpServerPeerSlot[] snapshot;
         lock (_peersLock)
         {
@@ -77,6 +79,22 @@ public sealed partial class UdpServerTransport
 
         foreach (var slot in snapshot)
         {
+            // HalfOpen slots are reaped on the shorter WelcomeConfirmTimeout.
+            // They never receive heartbeats — the server already shipped the
+            // WelcomeAck, the ball is in the client's court, and a heartbeat
+            // would just give an attacker a free MAC'd oracle. Reaping
+            // silently drops the slot; no Disconnected event is emitted
+            // because Connected was never emitted for a HalfOpen slot.
+            if (slot.IsHalfOpen)
+            {
+                if (now - slot.LastSeenTicks >= halfOpenDeadlineMs)
+                {
+                    ReapHalfOpenSlot(slot);
+                }
+
+                continue;
+            }
+
             if (!slot.IsConnected)
             {
                 continue;
@@ -91,6 +109,18 @@ public sealed partial class UdpServerTransport
             if (now - slot.LastSentTicks >= heartbeatMs)
             {
                 SendControlFrame(UdpFrameKind.Heartbeat, slot.Id, slot);
+            }
+        }
+
+        lock (_peersLock)
+        {
+            var staleBefore = now - (long)_options.DeadlineDuration.TotalMilliseconds;
+            foreach (var address in _helloSources
+                         .Where(pair => pair.Value.LastSeenTicks < staleBefore)
+                         .Select(pair => pair.Key)
+                         .ToArray())
+            {
+                _helloSources.Remove(address);
             }
         }
     }

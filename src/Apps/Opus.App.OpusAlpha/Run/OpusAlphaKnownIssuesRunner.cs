@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using Opus.App.OpusAlpha.Cli;
 using Opus.Engine.AlphaStress.KnownIssues;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 
 namespace Opus.App.OpusAlpha.Run;
 
@@ -24,7 +25,6 @@ public static class OpusAlphaKnownIssuesRunner
     private const int ExitWriteFailed = 3;
     private const int ExitDifferent = 4;
 
-    private const string TempExtension = ".tmp";
     private const string MergeHeader = "Opus known-issue ledger merge";
     private const string DiffHeader = "Opus known-issue ledger diff";
 
@@ -214,19 +214,9 @@ public static class OpusAlphaKnownIssuesRunner
             return false;
         }
 
-        var tempPath = path + TempExtension;
         try
         {
-            File.WriteAllText(tempPath, content, Encoding.UTF8);
-            if (File.Exists(path))
-            {
-                File.Replace(tempPath, path, destinationBackupFileName: null);
-            }
-            else
-            {
-                File.Move(tempPath, path);
-            }
-
+            AtomicFile.WriteAllText(path, content);
             return true;
         }
         catch (UnauthorizedAccessException ex)

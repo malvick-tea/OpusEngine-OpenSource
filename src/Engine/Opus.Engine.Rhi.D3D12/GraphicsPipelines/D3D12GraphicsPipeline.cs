@@ -4,6 +4,10 @@ using Silk.NET.Direct3D12;
 namespace Opus.Engine.Rhi.Direct3D12;
 
 /// <summary>RAII holder for a native <c>ID3D12PipelineState*</c>.</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only one unmanaged COM reference.")]
 public sealed unsafe class D3D12GraphicsPipeline : IDisposable
 {
     private ID3D12PipelineState* _pso;
@@ -16,6 +20,11 @@ public sealed unsafe class D3D12GraphicsPipeline : IDisposable
 
     public ID3D12PipelineState* Native => _pso;
 
+    ~D3D12GraphicsPipeline()
+    {
+        ReleaseNative();
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -23,12 +32,17 @@ public sealed unsafe class D3D12GraphicsPipeline : IDisposable
             return;
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_pso != null)
         {
             _pso->Release();
             _pso = null;
         }
-
-        _disposed = true;
     }
 }

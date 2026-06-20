@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Numerics;
 using FluentAssertions;
 using Opus.Content.Meshes;
@@ -113,6 +115,57 @@ public sealed class MultiMaterialAtlasPlanTests
         slot.MetallicFactor.Should().Be(0f);
         slot.RoughnessFactor.Should().Be(0.8f);
         slot.EmissiveFactor.Should().Be(new Vector3(1f, 0f, 0f));
+    }
+
+    [Fact]
+    public void Build_rejects_more_than_the_material_limit()
+    {
+        var bindings = Enumerable.Range(0, MultiMaterialAtlasPlan.MaxMaterials + 1)
+            .Select(i => Binding($"material-{i}"))
+            .ToArray();
+
+        var act = () => MultiMaterialAtlasPlan.Build(bindings);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*material limit*");
+    }
+
+    [Fact]
+    public void Build_rejects_more_than_the_unique_image_limit()
+    {
+        var bindings = Enumerable.Range(0, MultiMaterialAtlasPlan.MaxMaterials)
+            .Select(i => Binding(
+                $"material-{i}",
+                baseColor: i * 3,
+                normal: (i * 3) + 1,
+                metallicRoughness: (i * 3) + 2))
+            .ToArray();
+
+        var act = () => MultiMaterialAtlasPlan.Build(bindings);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*image limit*");
+    }
+
+    [Fact]
+    public void Build_rejects_negative_image_indices()
+    {
+        var act = () => MultiMaterialAtlasPlan.Build(new[] { Binding("bad", baseColor: -1) });
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*non-negative*");
+    }
+
+    [Fact]
+    public void Build_rejects_non_finite_material_factors()
+    {
+        var bindings = new[]
+        {
+            Binding(
+                "unsafe",
+                baseColorFactor: new Vector4(float.NaN, 1f, 1f, 1f)),
+        };
+
+        var act = () => MultiMaterialAtlasPlan.Build(bindings);
+
+        act.Should().Throw<InvalidDataException>().WithMessage("*PBR factors*");
     }
 
     private static GltfMaterialBinding Binding(

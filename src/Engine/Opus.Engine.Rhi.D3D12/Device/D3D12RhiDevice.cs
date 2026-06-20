@@ -11,6 +11,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// for GPU-idle waits. Resource / view / command-list / shader / pipeline factory
 /// methods live in partial files alongside this one.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only unmanaged device COM references.")]
 public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
 {
     private readonly DXGI _dxgiApi;
@@ -22,6 +26,11 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
     private D3D12DebugMessenger? _debugMessenger;
     private Win32FenceWait? _idleWait;
     private bool _disposed;
+
+    ~D3D12RhiDevice()
+    {
+        ReleaseNative();
+    }
 
     private D3D12RhiDevice(
         DXGI dxgiApi,
@@ -77,6 +86,7 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
         IDXGIAdapter1* adapter = null;
         ID3D12Device* device = null;
         ID3D12CommandQueue* graphicsQueue = null;
+        D3D12DebugMessenger? debugMessenger = null;
 
         try
         {
@@ -117,7 +127,7 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
             }
 
             var capabilities = D3D12CapabilityProbe.Query(device);
-            var debugMessenger = enableDebugLayer ? D3D12DebugMessenger.TryAttach(device) : null;
+            debugMessenger = enableDebugLayer ? D3D12DebugMessenger.TryAttach(device) : null;
 
             var instance = new D3D12RhiDevice(
                 dxgi, d3d12, factory, adapter, device, graphicsQueue, adapterInfo, capabilities, debugMessenger);
@@ -127,6 +137,7 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
             adapter = null;
             device = null;
             graphicsQueue = null;
+            debugMessenger = null;
             dxgi = null;
             d3d12 = null;
             return instance;
@@ -157,6 +168,7 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
                 factory->Release();
             }
 
+            debugMessenger?.Dispose();
             d3d12?.Dispose();
             dxgi?.Dispose();
         }
@@ -201,12 +213,20 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
         _idleWait?.Dispose();
         _idleWait = null;
 
-        if (_debugMessenger != null)
-        {
-            _debugMessenger.Dispose();
-            _debugMessenger = null;
-        }
+        _debugMessenger?.Dispose();
+        _debugMessenger = null;
+        ReleaseNative();
 
+        // Don't dispose the D3D12 / DXGI APIs; that unloads d3d12.dll / dxgi.dll. Process-wide
+        // load/unload churn (xUnit creates a new device per D3D12 integration test) exhausts
+        // Windows loader resources; testhost eventually hangs on a subsequent SDL_Init or
+        // D3D12CreateDevice with the loader lock held.
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_graphicsQueue != null)
         {
             _graphicsQueue->Release();
@@ -230,11 +250,5 @@ public sealed unsafe partial class D3D12RhiDevice : IRhiDevice
             _factory->Release();
             _factory = null;
         }
-
-        // Don't Dispose the D3D12 / DXGI APIs — that unloads d3d12.dll / dxgi.dll. Process-wide
-        // load/unload churn (xUnit creates a new device per D3D12 integration test) exhausts
-        // Windows loader resources; testhost eventually hangs on a subsequent SDL_Init or
-        // D3D12CreateDevice with the loader lock held.
-        _disposed = true;
     }
 }

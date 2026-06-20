@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Opus.Foundation.Security;
 
 namespace Opus.Tool.PackageValidator;
 
@@ -42,6 +43,13 @@ internal static class PackagePemKeys
         try
         {
             ecdsa.ImportFromPem(pem);
+            if (!EcdsaKeyPolicy.IsNistP256(ecdsa))
+            {
+                ecdsa.Dispose();
+                error = "The package trust key must use the NIST P-256 curve.";
+                return false;
+            }
+
             key = ecdsa;
             return true;
         }

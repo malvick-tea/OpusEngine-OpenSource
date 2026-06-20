@@ -15,6 +15,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// stride. Higher-R milestones bolt on root-constant + root-CBV/SRV argument types
 /// for multi-draw indirect with per-draw material lookup.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only one unmanaged COM reference.")]
 public sealed unsafe class D3D12CommandSignature : IDisposable
 {
     private ID3D12CommandSignature* _signature;
@@ -32,6 +36,11 @@ public sealed unsafe class D3D12CommandSignature : IDisposable
     public uint StrideBytes { get; }
 
     public ID3D12CommandSignature* Native => _signature;
+
+    ~D3D12CommandSignature()
+    {
+        ReleaseNative();
+    }
 
     /// <summary>Creates the simplest signature: one <c>DrawIndexedInstanced</c> argument
     /// per command, no per-command root-binding mutations. Argument buffer must contain
@@ -104,13 +113,17 @@ public sealed unsafe class D3D12CommandSignature : IDisposable
             return;
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_signature != null)
         {
             _signature->Release();
             _signature = null;
         }
-
-        _disposed = true;
-        GC.SuppressFinalize(this);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 using Opus.Persistence.Settings;
 
 namespace Opus.App.Editor.Run;
@@ -53,16 +54,8 @@ public static class EditorSettingsStore
         try
         {
             var fullPath = Path.GetFullPath(path);
-            var directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrWhiteSpace(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
             var json = JsonSettingsSerializer.Serialize(settings, EditorSettings.SchemaVersion);
-            var tempPath = fullPath + ".tmp";
-            File.WriteAllText(tempPath, json);
-            File.Move(tempPath, fullPath, overwrite: true);
+            AtomicFile.WriteAllText(fullPath, json);
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)

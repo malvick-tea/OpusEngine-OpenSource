@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 
 namespace Opus.Engine.AlphaStress.KnownIssues;
 
@@ -18,8 +19,6 @@ namespace Opus.Engine.AlphaStress.KnownIssues;
 /// </summary>
 public sealed class KnownIssueLedgerWriter
 {
-    private const string TempExtension = ".tmp";
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -84,7 +83,7 @@ public sealed class KnownIssueLedgerWriter
         try
         {
             var json = JsonSerializer.Serialize(ledger.Records, JsonOptions);
-            WriteAtomic(_options.FilePath, json);
+            AtomicFile.WriteAllText(_options.FilePath, json);
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -106,19 +105,6 @@ public sealed class KnownIssueLedgerWriter
         }
 
         return KnownIssueLedgerWriteResult.Success(_options.FilePath);
-    }
-
-    private static void WriteAtomic(string finalPath, string content)
-    {
-        var tempPath = finalPath + TempExtension;
-        File.WriteAllText(tempPath, content, Encoding.UTF8);
-        if (File.Exists(finalPath))
-        {
-            File.Replace(tempPath, finalPath, destinationBackupFileName: null);
-            return;
-        }
-
-        File.Move(tempPath, finalPath);
     }
 
     private KnownIssueLedgerWriteIssue BuildIssue(Exception exception, string remediation) => new(

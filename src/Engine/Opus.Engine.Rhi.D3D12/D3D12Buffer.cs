@@ -16,6 +16,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// Lifetime: caller disposes after <c>WaitForIdle</c> / fence drain so the resource
 /// release isn't racing in-flight GPU consumption.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only one unmanaged COM reference.")]
 public sealed unsafe class D3D12Buffer : IRhiBuffer
 {
     private ID3D12Resource* _resource;
@@ -36,6 +40,11 @@ public sealed unsafe class D3D12Buffer : IRhiBuffer
     public RhiBufferUsage Usage { get; }
 
     public ID3D12Resource* Native => _resource;
+
+    ~D3D12Buffer()
+    {
+        ReleaseNative();
+    }
 
     /// <summary>GPU-side virtual address — what <c>D3D12_VERTEX_BUFFER_VIEW</c>
     /// /<c>D3D12_INDEX_BUFFER_VIEW</c> consume for IA binding.</summary>
@@ -98,12 +107,17 @@ public sealed unsafe class D3D12Buffer : IRhiBuffer
             return;
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_resource != null)
         {
             _resource->Release();
             _resource = null;
         }
-
-        _disposed = true;
     }
 }

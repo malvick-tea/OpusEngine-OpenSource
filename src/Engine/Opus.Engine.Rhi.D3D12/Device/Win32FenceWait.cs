@@ -10,6 +10,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// <summary>Fence-based GPU drain implementation. Owns the
 /// per-device <see cref="ID3D12Fence"/> + Win32 event handle pair used by
 /// <c>WaitForIdle</c>.</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only an unmanaged fence and event handle.")]
 internal sealed unsafe class Win32FenceWait : IDisposable
 {
     private const uint WaitFiveSeconds = 5000u;
@@ -18,6 +22,11 @@ internal sealed unsafe class Win32FenceWait : IDisposable
     private ID3D12Fence* _fence;
     private nint _waitEvent;
     private ulong _nextSignal = 1;
+
+    ~Win32FenceWait()
+    {
+        ReleaseNative();
+    }
 
     public Win32FenceWait(ID3D12Device* device)
     {
@@ -70,6 +79,12 @@ internal sealed unsafe class Win32FenceWait : IDisposable
     }
 
     public void Dispose()
+    {
+        ReleaseNative();
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
     {
         if (_fence != null)
         {

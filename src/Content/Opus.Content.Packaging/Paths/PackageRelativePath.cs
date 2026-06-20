@@ -12,6 +12,11 @@ namespace Opus.Content.Packaging.Paths;
 /// </summary>
 public readonly record struct PackageRelativePath
 {
+    private const int MaximumPathLength = 1024;
+    private const int MaximumSegmentLength = 255;
+    private static readonly char[] PortableInvalidSegmentCharacters =
+        ['<', '>', '"', '|', '?', '*'];
+
     private PackageRelativePath(string value)
     {
         Value = value;
@@ -33,6 +38,12 @@ public readonly record struct PackageRelativePath
         if (string.IsNullOrWhiteSpace(text))
         {
             reason = "Path is empty.";
+            return false;
+        }
+
+        if (text.Length > MaximumPathLength)
+        {
+            reason = "Path exceeds the maximum package-relative length.";
             return false;
         }
 
@@ -72,9 +83,20 @@ public readonly record struct PackageRelativePath
                 return false;
             }
 
-            if (part == "." || part == "..")
+            if (part is "." or "..")
             {
-                reason = "Path must not contain current or parent-directory segments.";
+                reason = "Path contains a parent-directory or current-directory segment.";
+                return false;
+            }
+
+            if (part.Length > MaximumSegmentLength
+                || part.EndsWith(' ')
+                || part.EndsWith('.')
+                || part.Contains(':', StringComparison.Ordinal)
+                || part.IndexOfAny(PortableInvalidSegmentCharacters) >= 0
+                || IsWindowsDeviceName(part))
+            {
+                reason = "Path contains an unsafe segment.";
                 return false;
             }
         }
@@ -96,4 +118,21 @@ public readonly record struct PackageRelativePath
     }
 
     public override string ToString() => Value;
+
+    private static bool IsWindowsDeviceName(string segment)
+    {
+        var stem = segment.Split('.')[0];
+        if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return stem.Length == 4
+            && (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase)
+                || stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase))
+            && stem[3] is >= '1' and <= '9';
+    }
 }

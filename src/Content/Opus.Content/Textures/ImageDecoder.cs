@@ -4,23 +4,21 @@ using StbImageSharp;
 
 namespace Opus.Content.Textures;
 
-/// <summary>Decoded pixel buffer in 32-bit RGBA (R8 G8 B8 A8 unorm, tightly packed,
-/// no row padding). One byte = one channel; size = <see cref="Width"/> ×
-/// <see cref="Height"/> × 4.</summary>
+/// <summary>Decoded tightly packed RGBA8 pixel data.</summary>
 public sealed record DecodedImage(int Width, int Height, byte[] Rgba)
 {
     public int ByteSize => Rgba.Length;
 
-    public int RowPitchBytes => Width * 4;
+    public int RowPitchBytes => checked(Width * 4);
 }
 
-/// <summary>Thin wrapper over StbImageSharp that turns a PNG or JPEG byte blob into a
-/// <see cref="DecodedImage"/> in tightly-packed RGBA8. Used by both the glTF embedded-
-/// texture path (<see cref="GltfImageReader"/> blobs) and the standalone asset loader
-/// once we have one. Throws <see cref="InvalidDataException"/> on a corrupt header or
-/// unsupported format — never <see cref="System.Exception"/> from the codec directly.</summary>
+/// <summary>Bounded PNG and JPEG decoding through StbImageSharp.</summary>
 public static class ImageDecoder
 {
+    public const int MaxEncodedBytes = 64 * 1024 * 1024;
+    public const int MaxDimension = 8192;
+    public const long MaxPixelCount = 16L * 1024 * 1024;
+
     public static DecodedImage DecodeRgba8(ReadOnlySpan<byte> encoded)
     {
         if (encoded.IsEmpty)
@@ -28,21 +26,76 @@ public static class ImageDecoder
             throw new InvalidDataException("Image blob is empty.");
         }
 
-        ImageResult result;
+        if (encoded.Length > MaxEncodedBytes)
+        {
+            throw new InvalidDataException(
+                $"Encoded image exceeds the {MaxEncodedBytes}-byte limit.");
+        }
+
+        var encodedBytes = encoded.ToArray();
+        ImageInfo info;
         try
         {
-            result = ImageResult.FromMemory(encoded.ToArray(), ColorComponents.RedGreenBlueAlpha);
+            using var infoStream = new MemoryStream(encodedBytes, writable: false);
+            var inspected = ImageInfo.FromStream(infoStream);
+            if (inspected is not ImageInfo validInfo)
+            {
+                throw new InvalidDataException(
+                    "StbImageSharp did not recognise the image header.");
+            }
+
+            info = validInfo;
         }
         catch (Exception ex)
         {
-            throw new InvalidDataException("StbImageSharp failed to decode image bytes.", ex);
+            throw new InvalidDataException(
+                "StbImageSharp failed to inspect image bytes.",
+                ex);
         }
 
-        if (result.Data is null || result.Width <= 0 || result.Height <= 0)
+        ValidateDimensions(info.Width, info.Height);
+
+        ImageResult result;
+        try
         {
-            throw new InvalidDataException($"Decoded image has invalid dimensions ({result.Width}×{result.Height}).");
+            result = ImageResult.FromMemory(
+                encodedBytes,
+                ColorComponents.RedGreenBlueAlpha);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException(
+                "StbImageSharp failed to decode image bytes.",
+                ex);
+        }
+
+        if (result.Data is null)
+        {
+            throw new InvalidDataException("Decoded image has no pixel payload.");
+        }
+
+        ValidateDimensions(result.Width, result.Height);
+        var expectedBytes = checked((int)((long)result.Width * result.Height * 4L));
+        if (result.Data.Length != expectedBytes)
+        {
+            throw new InvalidDataException(
+                $"Decoded image payload is {result.Data.Length} bytes; expected {expectedBytes}.");
         }
 
         return new DecodedImage(result.Width, result.Height, result.Data);
+    }
+
+    private static void ValidateDimensions(int width, int height)
+    {
+        var pixels = (long)width * height;
+        if (width <= 0
+            || height <= 0
+            || width > MaxDimension
+            || height > MaxDimension
+            || pixels > MaxPixelCount)
+        {
+            throw new InvalidDataException(
+                $"Image dimensions {width}x{height} exceed decoder safety limits.");
+        }
     }
 }

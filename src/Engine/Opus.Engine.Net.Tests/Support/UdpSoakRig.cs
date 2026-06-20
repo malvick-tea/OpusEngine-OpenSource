@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Net;
 using Opus.Engine.Net.Soak;
 using Opus.Net.Transport;
+using Opus.Net.Udp.Frame;
 using Opus.Net.Udp.Transport;
 
 namespace Opus.Engine.Net.Tests.Support;
@@ -26,6 +27,7 @@ internal sealed class UdpSoakRig : INetSoakRig
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(peerCount);
         var options = new UdpTransportOptions
         {
+            AuthenticationKey = UdpAuthentication.DeriveKey("opus-udp-soak-tests-only"),
             HeartbeatInterval = TimeSpan.FromMilliseconds(100),
             DeadlineDuration = TimeSpan.FromMilliseconds(1500),
             ReceivePollInterval = TimeSpan.FromMilliseconds(25),

@@ -13,6 +13,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// R-1.4.b ships sampled 2D textures only. R-3 generalises for render targets / UAVs /
 /// depth-stencils / texture arrays / cubemaps as the renderer needs them.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only an owned unmanaged COM reference.")]
 public sealed unsafe class D3D12Texture : IRhiTexture
 {
     private ID3D12Resource* _resource;
@@ -75,6 +79,11 @@ public sealed unsafe class D3D12Texture : IRhiTexture
 
     public ID3D12Resource* Native => _resource;
 
+    ~D3D12Texture()
+    {
+        ReleaseNative();
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -82,12 +91,18 @@ public sealed unsafe class D3D12Texture : IRhiTexture
             return;
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_ownsNative && _resource != null)
         {
             _resource->Release();
         }
 
         _resource = null;
-        _disposed = true;
     }
 }

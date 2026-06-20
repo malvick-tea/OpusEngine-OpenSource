@@ -11,6 +11,8 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// in one staging buffer so a trilinear / anisotropic sampler has every minified level.</summary>
 public sealed unsafe partial class D3D12RhiDevice
 {
+    private const int MaxTextureMipLevels = 32;
+
     public D3D12Buffer ScheduleTextureUpload(D3D12Texture texture, ReadOnlySpan<byte> pixels, D3D12CommandList commandList)
     {
         ArgumentNullException.ThrowIfNull(texture);
@@ -31,11 +33,15 @@ public sealed unsafe partial class D3D12RhiDevice
             &rowSizeBytes,
             &totalBytes);
 
+        var stagingByteCount = CheckedNativeSize(totalBytes, "texture staging buffer");
+        var sourceRowSize = CheckedNativeSize(rowSizeBytes, "texture row");
+        var rowCount = checked((int)numRows);
+        var rowPitch = checked((int)footprint.Footprint.RowPitch);
         var staging = CreateGraphicsBuffer(new RhiBufferDescription(
-            $"{texture.DebugName}.staging", (int)totalBytes, RhiBufferUsage.Staging));
+            $"{texture.DebugName}.staging", stagingByteCount, RhiBufferUsage.Staging));
 
-        var stagingBytes = new byte[totalBytes];
-        CopyRows(pixels, stagingBytes, (int)rowSizeBytes, (int)footprint.Footprint.RowPitch, (int)numRows);
+        var stagingBytes = new byte[stagingByteCount];
+        CopyRows(pixels, stagingBytes, sourceRowSize, rowPitch, rowCount);
         staging.Upload(stagingBytes);
 
         commandList.CopyBufferToTexture(staging, footprint, texture);
@@ -61,8 +67,23 @@ public sealed unsafe partial class D3D12RhiDevice
             throw new ArgumentException("At least one mip level is required.", nameof(mipLevels));
         }
 
+        if (mipLevels.Count > MaxTextureMipLevels)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(mipLevels),
+                mipLevels.Count,
+                $"Texture uploads support at most {MaxTextureMipLevels} mip levels.");
+        }
+
         var mipCount = (uint)mipLevels.Count;
         var resourceDesc = texture.Native->GetDesc();
+        if (mipCount > resourceDesc.MipLevels)
+        {
+            throw new ArgumentException(
+                $"Upload contains {mipCount} mip levels but texture '{texture.DebugName}' has {resourceDesc.MipLevels}.",
+                nameof(mipLevels));
+        }
+
         var footprints = stackalloc PlacedSubresourceFootprint[(int)mipCount];
         var numRows = stackalloc uint[(int)mipCount];
         var rowSizes = stackalloc ulong[(int)mipCount];
@@ -70,18 +91,23 @@ public sealed unsafe partial class D3D12RhiDevice
         _device->GetCopyableFootprints(
             &resourceDesc, 0u, mipCount, 0, footprints, numRows, rowSizes, &totalBytes);
 
+        var stagingByteCount = CheckedNativeSize(totalBytes, "mipped texture staging buffer");
         var staging = CreateGraphicsBuffer(new RhiBufferDescription(
-            $"{texture.DebugName}.staging", (int)totalBytes, RhiBufferUsage.Staging));
+            $"{texture.DebugName}.staging", stagingByteCount, RhiBufferUsage.Staging));
 
-        var stagingBytes = new byte[totalBytes];
+        var stagingBytes = new byte[stagingByteCount];
         for (var mip = 0; mip < mipLevels.Count; mip++)
         {
+            var offset = CheckedNativeSize(footprints[mip].Offset, "mip staging offset");
+            var rowSize = CheckedNativeSize(rowSizes[mip], "mip row");
+            var rowPitch = checked((int)footprints[mip].Footprint.RowPitch);
+            var rowCount = checked((int)numRows[mip]);
             CopyRows(
                 mipLevels[mip].Span,
-                stagingBytes.AsSpan((int)footprints[mip].Offset),
-                (int)rowSizes[mip],
-                (int)footprints[mip].Footprint.RowPitch,
-                (int)numRows[mip]);
+                stagingBytes.AsSpan(offset),
+                rowSize,
+                rowPitch,
+                rowCount);
         }
 
         staging.Upload(stagingBytes);
@@ -105,10 +131,39 @@ public sealed unsafe partial class D3D12RhiDevice
         int destinationRowPitch,
         int numRows)
     {
+        var requiredSourceBytes = checked(sourceRowSize * numRows);
+        var requiredDestinationBytes = numRows == 0
+            ? 0
+            : checked(((numRows - 1) * destinationRowPitch) + sourceRowSize);
+        if (source.Length != requiredSourceBytes)
+        {
+            throw new ArgumentException(
+                $"Texture source contains {source.Length} bytes; expected {requiredSourceBytes}.",
+                nameof(source));
+        }
+
+        if (destination.Length < requiredDestinationBytes)
+        {
+            throw new ArgumentException(
+                $"Texture staging destination contains {destination.Length} bytes; expected at least {requiredDestinationBytes}.",
+                nameof(destination));
+        }
+
         for (var row = 0; row < numRows; row++)
         {
             source.Slice(row * sourceRowSize, sourceRowSize)
                 .CopyTo(destination.Slice(row * destinationRowPitch, sourceRowSize));
         }
+    }
+
+    private static int CheckedNativeSize(ulong value, string label)
+    {
+        if (value > int.MaxValue)
+        {
+            throw new InvalidOperationException(
+                $"{label} requires {value} bytes, exceeding the managed upload limit.");
+        }
+
+        return (int)value;
     }
 }

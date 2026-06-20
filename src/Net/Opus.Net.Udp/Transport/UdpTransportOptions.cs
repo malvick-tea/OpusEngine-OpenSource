@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Net.Sockets;
 
 namespace Opus.Net.Udp.Transport;
 
@@ -15,6 +18,11 @@ namespace Opus.Net.Udp.Transport;
 /// </remarks>
 public sealed record UdpTransportOptions
 {
+    /// <summary>Pre-shared authentication key used to authenticate the handshake and derive
+    /// per-session keys. It must be configured explicitly; the transport never falls back to
+    /// an anonymous mode.</summary>
+    public ReadOnlyMemory<byte> AuthenticationKey { get; init; }
+
     /// <summary>How often the transport emits a <see cref="Frame.UdpFrameKind.Heartbeat"/>
     /// frame when no other outbound traffic has flowed within the same window. Must be
     /// strictly less than <see cref="DeadlineDuration"/> — otherwise a quiet line
@@ -49,9 +57,17 @@ public sealed record UdpTransportOptions
     /// out).</summary>
     public int MaxConcurrentPeers { get; init; } = DefaultMaxConcurrentPeers;
 
+    /// <summary>Maximum active peer slots accepted from one source IP address. This limits
+    /// slot exhaustion by one host even when it rotates UDP source ports. Deployments that
+    /// intentionally place many players behind one gateway can raise it.</summary>
+    public int MaxConcurrentPeersPerAddress { get; init; } =
+        DefaultMaxConcurrentPeersPerAddress;
+
     /// <summary>Default concurrent-peer cap. Sized for the 20-player alpha plus reconnect
     /// headroom; raise it via options for a larger server deployment.</summary>
     public const int DefaultMaxConcurrentPeers = 64;
+
+    public const int DefaultMaxConcurrentPeersPerAddress = 4;
 
     /// <summary>Maximum number of inbound events the transport holds in its poll queue before
     /// shedding further inbound payloads. A connected peer that sends payload frames faster than
@@ -98,6 +114,49 @@ public sealed record UdpTransportOptions
     /// steady-state payload rate; raise it for a consumer with a chattier inbound protocol.</summary>
     public const int DefaultInboundPayloadRefillPerSecondPerPeer = 512;
 
+    public int MaxTrackedHelloSources { get; init; } = 1024;
+
+    public int HelloBurstPerSource { get; init; } = 8;
+
+    public int HelloRefillPerSecondPerSource { get; init; } = 2;
+
+    /// <summary>Maximum number of HalfOpen slots (slots that have received
+    /// a valid Hello and sent a WelcomeAck but have not yet received the
+    /// WelcomeConfirm) the server will hold simultaneously. A HalfOpen slot
+    /// does not count toward <see cref="MaxConcurrentPeers"/> and is reaped
+    /// on the shorter <see cref="WelcomeConfirmTimeout"/> timer. The cap
+    /// exists so a botnet cannot exhaust memory by opening millions of
+    /// in-flight 3-way handshakes; the per-IP cap
+    /// (<see cref="MaxConcurrentPeersPerAddress"/>) bounds single-source
+    /// carpet-bombing. Default (256) is well above the alpha's expected
+    /// connect rate while still bounded.</summary>
+    public int MaxHalfOpenSlots { get; init; } = DefaultMaxHalfOpenSlots;
+
+    /// <summary>Default HalfOpen slot cap. Sized to absorb a connect burst
+    /// from a full 20-player alpha plus reconnect churn; raise it for a
+    /// larger deployment.</summary>
+    public const int DefaultMaxHalfOpenSlots = 256;
+
+    /// <summary>How long a HalfOpen slot may wait for a WelcomeConfirm
+    /// before the server reaps it. Shorter than
+    /// <see cref="DeadlineDuration"/> so a flood of replayed Hellos from
+    /// many source IPs cannot pin the slot table for the full dead-peer
+    /// window. Default (2 s) is well above a typical RTT plus one client
+    /// tick, but well below the 10 s dead-peer timeout.</summary>
+    public TimeSpan WelcomeConfirmTimeout { get; init; } =
+        TimeSpan.FromSeconds(DefaultWelcomeConfirmTimeoutSeconds);
+
+    /// <summary>Default WelcomeConfirm timeout in seconds. Tuned for an
+    /// intercontinental RTT plus client-side processing headroom; short
+    /// enough that a replay flood cannot hold slots open for long.</summary>
+    public const int DefaultWelcomeConfirmTimeoutSeconds = 2;
+
+    /// <summary>
+    /// Optional source-address allowlist. When configured, the server drops every datagram from
+    /// an address outside this collection before allocating handshake or peer state.
+    /// </summary>
+    public IReadOnlyCollection<IPAddress>? AllowedRemoteAddresses { get; init; }
+
     /// <summary>Validates every bounded option against its shared invariant (each cap must be at
     /// least 1). Called by <see cref="UdpServerTransport.Bind"/> and the
     /// <see cref="UdpClientTransport"/> constructor so a misconfigured cap fails fast at construction
@@ -108,9 +167,44 @@ public sealed record UdpTransportOptions
     public void Validate()
     {
         ThrowIfLessThanOne(MaxConcurrentPeers, nameof(MaxConcurrentPeers));
+        ThrowIfLessThanOne(
+            MaxConcurrentPeersPerAddress,
+            nameof(MaxConcurrentPeersPerAddress));
         ThrowIfLessThanOne(MaxInboundQueuedEvents, nameof(MaxInboundQueuedEvents));
         ThrowIfLessThanOne(MaxInboundPayloadBurstPerPeer, nameof(MaxInboundPayloadBurstPerPeer));
         ThrowIfLessThanOne(InboundPayloadRefillPerSecondPerPeer, nameof(InboundPayloadRefillPerSecondPerPeer));
+        ThrowIfLessThanOne(MaxTrackedHelloSources, nameof(MaxTrackedHelloSources));
+        ThrowIfLessThanOne(HelloBurstPerSource, nameof(HelloBurstPerSource));
+        ThrowIfLessThanOne(HelloRefillPerSecondPerSource, nameof(HelloRefillPerSecondPerSource));
+        ThrowIfLessThanOne(MaxHalfOpenSlots, nameof(MaxHalfOpenSlots));
+        if (WelcomeConfirmTimeout <= TimeSpan.Zero
+            || WelcomeConfirmTimeout >= DeadlineDuration)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(WelcomeConfirmTimeout),
+                WelcomeConfirmTimeout,
+                "WelcomeConfirmTimeout must be strictly positive and strictly less than DeadlineDuration.");
+        }
+        if (AuthenticationKey.Length < Frame.UdpAuthentication.MinimumKeyBytes)
+        {
+            throw new ArgumentException(
+                $"AuthenticationKey must contain at least {Frame.UdpAuthentication.MinimumKeyBytes} bytes.",
+                nameof(AuthenticationKey));
+        }
+
+        if (AllowedRemoteAddresses is not null)
+        {
+            foreach (var address in AllowedRemoteAddresses)
+            {
+                ArgumentNullException.ThrowIfNull(address);
+                if (address.AddressFamily != AddressFamily.InterNetwork)
+                {
+                    throw new ArgumentException(
+                        "AllowedRemoteAddresses currently supports IPv4 addresses only.",
+                        nameof(AllowedRemoteAddresses));
+                }
+            }
+        }
     }
 
     private static void ThrowIfLessThanOne(int value, string optionName)

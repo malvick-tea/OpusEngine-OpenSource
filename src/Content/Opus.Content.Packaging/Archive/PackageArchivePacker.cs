@@ -91,10 +91,12 @@ public static class PackageArchivePacker
         }
 
         long total = 0;
+        var totalExceeded = false;
         var hadError = false;
+        var declaredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in manifest.Files)
         {
-            if (!PackageRelativePath.TryCreate(file.Path, out _, out var reason))
+            if (!PackageRelativePath.TryCreate(file.Path, out var relativePath, out var reason))
             {
                 diagnostics.Add(PackError(
                     PackageDiagnosticCode.PathInvalid,
@@ -106,7 +108,28 @@ public static class PackageArchivePacker
                 continue;
             }
 
-            if (file.SizeBytes > limits.MaxEntryUncompressedBytes)
+            if (!declaredPaths.Add(relativePath.Value))
+            {
+                diagnostics.Add(PackError(
+                    PackageDiagnosticCode.PathDuplicate,
+                    $"Manifest path '{file.Path}' is declared more than once.",
+                    "Keep one manifest entry for each case-insensitive package path.",
+                    "package.path.duplicate",
+                    ("path", file.Path)));
+                hadError = true;
+            }
+
+            if (file.SizeBytes < 0)
+            {
+                diagnostics.Add(PackError(
+                    PackageDiagnosticCode.FileSizeMismatch,
+                    $"File '{file.Path}' declares a negative size.",
+                    "Regenerate the manifest from the current content tree.",
+                    "package.file.sizeInvalid",
+                    ("entry", file.Path)));
+                hadError = true;
+            }
+            else if (file.SizeBytes > limits.MaxEntryUncompressedBytes)
             {
                 diagnostics.Add(PackError(
                     PackageDiagnosticCode.ArchiveEntryTooLarge,
@@ -117,21 +140,60 @@ public static class PackageArchivePacker
                 hadError = true;
             }
 
-            total += file.SizeBytes;
+            if (!IsSha256(file.Sha256))
+            {
+                diagnostics.Add(PackError(
+                    PackageDiagnosticCode.FileHashMismatch,
+                    $"File '{file.Path}' does not declare a valid SHA-256 digest.",
+                    "Regenerate the manifest from the current content tree.",
+                    "package.file.hashInvalid",
+                    ("entry", file.Path)));
+                hadError = true;
+            }
+
+            if (file.SizeBytes >= 0)
+            {
+                if (file.SizeBytes > limits.MaxTotalUncompressedBytes - total)
+                {
+                    totalExceeded = true;
+                }
+                else
+                {
+                    total += file.SizeBytes;
+                }
+            }
         }
 
-        if (total > limits.MaxTotalUncompressedBytes)
+        if (totalExceeded)
         {
             diagnostics.Add(PackError(
                 PackageDiagnosticCode.ArchiveTooLarge,
-                $"Package content totals {total} bytes, above the {limits.MaxTotalUncompressedBytes}-byte total limit.",
+                $"Package content exceeds the {limits.MaxTotalUncompressedBytes}-byte total limit.",
                 "Reduce package content or raise the total limit.",
                 "package.archive.tooLarge",
-                ("total", total.ToString(CultureInfo.InvariantCulture))));
+                ("limit", limits.MaxTotalUncompressedBytes.ToString(CultureInfo.InvariantCulture))));
             hadError = true;
         }
 
         return !hadError;
+    }
+
+    private static bool IsSha256(string? value)
+    {
+        if (value is null || value.Length != 64)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            if (!Uri.IsHexDigit(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static bool TryWriteArchiveAtomically(
@@ -143,20 +205,24 @@ public static class PackageArchivePacker
     {
         var outputPath = Path.GetFullPath(request.OutputArchivePath);
         var directory = Path.GetDirectoryName(outputPath) ?? Directory.GetCurrentDirectory();
-        var tempPath = Path.Combine(directory, Path.GetRandomFileName());
+        string? tempPath = null;
         try
         {
             Directory.CreateDirectory(directory);
-            using (var tempStream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            using (var tempStream = CreateTempFile(directory, out tempPath))
             {
                 OpusPackageArchiveWriter.Write(
                     contentRoot, request.Manifest, manifestBytes, signatureBytes, tempStream);
             }
 
-            File.Move(tempPath, outputPath, overwrite: true);
+            File.Move(tempPath!, outputPath, overwrite: true);
             return true;
         }
         catch (IOException ex)
+        {
+            return FailWrite(tempPath, outputPath, ex.Message, diagnostics);
+        }
+        catch (InvalidDataException ex)
         {
             return FailWrite(tempPath, outputPath, ex.Message, diagnostics);
         }
@@ -166,8 +232,31 @@ public static class PackageArchivePacker
         }
     }
 
+    private static FileStream CreateTempFile(string directory, out string tempPath)
+    {
+        const int maxAttempts = 16;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            tempPath = Path.Combine(directory, Path.GetRandomFileName());
+            try
+            {
+                return new FileStream(
+                    tempPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None);
+            }
+            catch (IOException) when (File.Exists(tempPath))
+            {
+            }
+        }
+
+        tempPath = string.Empty;
+        throw new IOException("Unable to allocate a unique archive staging file.");
+    }
+
     private static bool FailWrite(
-        string tempPath, string outputPath, string detail, List<PackageDiagnostic> diagnostics)
+        string? tempPath, string outputPath, string detail, List<PackageDiagnostic> diagnostics)
     {
         TryDeleteTemp(tempPath);
         diagnostics.Add(PackError(
@@ -179,8 +268,13 @@ public static class PackageArchivePacker
         return false;
     }
 
-    private static void TryDeleteTemp(string tempPath)
+    private static void TryDeleteTemp(string? tempPath)
     {
+        if (string.IsNullOrEmpty(tempPath))
+        {
+            return;
+        }
+
         try
         {
             if (File.Exists(tempPath))

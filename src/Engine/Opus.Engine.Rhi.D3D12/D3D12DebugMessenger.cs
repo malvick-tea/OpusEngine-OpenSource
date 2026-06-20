@@ -43,6 +43,10 @@ public readonly record struct D3D12DebugMessage(
 ///     AV that takes down the test host before in-memory state can be dumped.</description></item>
 /// </list>
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer unregisters one native callback and releases unmanaged state.")]
 public sealed unsafe class D3D12DebugMessenger : IDisposable
 {
     private static readonly object FileLogGuard = new();
@@ -54,6 +58,16 @@ public sealed unsafe class D3D12DebugMessenger : IDisposable
     private GCHandle _contextHandle;
     private readonly ConcurrentQueue<D3D12DebugMessage> _messages = new();
     private bool _disposed;
+
+    static D3D12DebugMessenger()
+    {
+        AppDomain.CurrentDomain.ProcessExit += static (_, _) => CloseLogFile();
+    }
+
+    ~D3D12DebugMessenger()
+    {
+        ReleaseNative();
+    }
 
     private D3D12DebugMessenger(ID3D12InfoQueue1* infoQueue1, uint cookie, GCHandle contextHandle)
     {
@@ -105,6 +119,8 @@ public sealed unsafe class D3D12DebugMessenger : IDisposable
     }
 
     public static string? CurrentLogFilePath => _fileLogPath;
+
+    public static void CloseLogFile() => SetLogFile(null);
 
     /// <summary>
     /// Tries to attach to <paramref name="device"/>. Returns null when ID3D12InfoQueue1
@@ -221,8 +237,14 @@ public sealed unsafe class D3D12DebugMessenger : IDisposable
             return;
         }
 
+        ReleaseNative();
         _disposed = true;
+        GC.SuppressFinalize(this);
+    }
 
+    private void ReleaseNative()
+    {
+        _disposed = true;
         if (_infoQueue1 != null)
         {
             try
@@ -240,6 +262,11 @@ public sealed unsafe class D3D12DebugMessenger : IDisposable
 
         if (_contextHandle.IsAllocated)
         {
+            if (_contextHandle.Target is MessengerState state)
+            {
+                state.Owner = null;
+            }
+
             _contextHandle.Free();
         }
     }

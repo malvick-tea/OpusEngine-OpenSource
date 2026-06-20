@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace Opus.Content.Textures;
@@ -21,6 +22,8 @@ public static class CompressedTextureCodec
     private const int MaxMipLevels = 16;
     private const int MaxBlockBytes = 64 * 1024 * 1024;
     private const int MaxHashBytes = 64;
+    private const int MaxDimension = 32768;
+    private const int MaxEncodedCacheBytes = MaxBlockBytes + 4096;
 
     private static readonly byte[] Magic = "OBC1"u8.ToArray();
 
@@ -58,6 +61,11 @@ public static class CompressedTextureCodec
         out CompressedTexture? texture)
     {
         texture = null;
+        if (data.Length > MaxEncodedCacheBytes)
+        {
+            return false;
+        }
+
         try
         {
             using var stream = new MemoryStream(data.ToArray(), writable: false);
@@ -76,7 +84,7 @@ public static class CompressedTextureCodec
 
             var width = reader.ReadInt32();
             var height = reader.ReadInt32();
-            if (width <= 0 || height <= 0)
+            if (width is <= 0 or > MaxDimension || height is <= 0 or > MaxDimension)
             {
                 return false;
             }
@@ -87,7 +95,8 @@ public static class CompressedTextureCodec
                 return false;
             }
 
-            if (!ReadExactly(reader, hashLength, out var hash) || !expectedSourceHash.SequenceEqual(hash))
+            if (!ReadExactly(reader, hashLength, out var hash)
+                || !CryptographicOperations.FixedTimeEquals(expectedSourceHash, hash))
             {
                 return false;
             }
@@ -99,13 +108,23 @@ public static class CompressedTextureCodec
             }
 
             var blocks = new byte[mipCount][];
+            long totalBlockBytes = 0;
             for (var level = 0; level < mipCount; level++)
             {
                 var length = reader.ReadInt32();
-                if (length is < 0 or > MaxBlockBytes || !ReadExactly(reader, length, out blocks[level]))
+                var expectedLength = ExpectedBlockBytes(width, height, level);
+                if (length != expectedLength
+                    || length > MaxBlockBytes
+                    || (totalBlockBytes += length) > MaxBlockBytes
+                    || !ReadExactly(reader, length, out blocks[level]))
                 {
                     return false;
                 }
+            }
+
+            if (stream.Position != stream.Length)
+            {
+                return false;
             }
 
             texture = new CompressedTexture(width, height, (BlockCompressionFormat)formatByte, blocks);
@@ -125,5 +144,15 @@ public static class CompressedTextureCodec
     {
         bytes = reader.ReadBytes(count);
         return bytes.Length == count;
+    }
+
+    private static int ExpectedBlockBytes(int width, int height, int mipLevel)
+    {
+        var mipWidth = Math.Max(1, width >> mipLevel);
+        var mipHeight = Math.Max(1, height >> mipLevel);
+        var blockColumns = (mipWidth + 3L) / 4L;
+        var blockRows = (mipHeight + 3L) / 4L;
+        var byteCount = blockColumns * blockRows * 16L;
+        return byteCount > int.MaxValue ? -1 : (int)byteCount;
     }
 }

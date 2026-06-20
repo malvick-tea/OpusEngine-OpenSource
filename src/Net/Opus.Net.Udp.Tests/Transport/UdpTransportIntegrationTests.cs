@@ -14,7 +14,7 @@ namespace Opus.Net.Udp.Tests.Transport;
 
 [Collection(nameof(UdpTransportIntegrationTests))]
 [CollectionDefinition(nameof(UdpTransportIntegrationTests), DisableParallelization = true)]
-public sealed class UdpTransportIntegrationTests
+public sealed partial class UdpTransportIntegrationTests
 {
     [Fact]
     public void Server_binds_to_an_ephemeral_loopback_port()
@@ -169,12 +169,22 @@ public sealed class UdpTransportIntegrationTests
     }
 
     [Fact]
-    public void Client_send_before_connected_returns_false()
+    public void Client_send_without_a_server_returns_false()
     {
-        using var harness = UdpIntegrationHarness.Start();
-        var entry = harness.AddClient("client");
+        using var reservation = new System.Net.Sockets.Socket(
+            System.Net.Sockets.AddressFamily.InterNetwork,
+            System.Net.Sockets.SocketType.Dgram,
+            System.Net.Sockets.ProtocolType.Udp);
+        reservation.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        var endpoint = (IPEndPoint)reservation.LocalEndPoint!;
+        reservation.Dispose();
 
-        entry.Client.Send(UdpClientTransport.ServerSentinelId, new byte[] { 1, 2 }).Should().BeFalse();
+        using var client = new UdpClientTransport(
+            "client",
+            endpoint,
+            UdpIntegrationHarness.AuthenticatedFastOptions());
+
+        client.Send(UdpClientTransport.ServerSentinelId, new byte[] { 1, 2 }).Should().BeFalse();
     }
 
     [Fact]
@@ -224,37 +234,6 @@ public sealed class UdpTransportIntegrationTests
         capHeld.Should().BeTrue();
         harness.ServerEvents.Count(e => e.Kind == NetEventKind.Connected).Should().Be(2);
         ConnectedClientCount().Should().Be(2, "the peer cap admits two of the three clients and rejects the third.");
-    }
-
-    [Fact]
-    public void Bind_rejects_a_non_positive_peer_cap()
-    {
-        var act = () => UdpServerTransport.Bind(
-            "bad-cap",
-            new IPEndPoint(IPAddress.Loopback, 0),
-            new UdpTransportOptions { MaxConcurrentPeers = 0 });
-
-        act.Should().Throw<ArgumentOutOfRangeException>();
-    }
-
-    [Fact]
-    public void Server_broadcast_reaches_only_addressed_client()
-    {
-        using var harness = UdpIntegrationHarness.Start();
-        var clientA = harness.AddClient("client-a");
-        harness.WaitForConnected(clientA);
-        var serverIdA = harness.WaitForServerToAccept(clientA);
-
-        var clientB = harness.AddClient("client-b");
-        harness.WaitForConnected(clientB);
-        harness.WaitForServerToAccept(clientB);
-
-        var payload = new byte[] { 7, 7, 7 };
-        harness.Server.Send(serverIdA, payload).Should().BeTrue();
-
-        var arrived = harness.WaitFor(() => clientA.Events.Any(e => e.Kind == NetEventKind.Received));
-        arrived.Should().BeTrue();
-        clientB.Events.Any(e => e.Kind == NetEventKind.Received).Should().BeFalse();
     }
 
     [Fact]
@@ -311,21 +290,6 @@ public sealed class UdpTransportIntegrationTests
     }
 
     [Fact]
-    public void Client_dispose_disconnects_idempotently()
-    {
-        using var harness = UdpIntegrationHarness.Start();
-        var entry = harness.AddClient("client");
-        harness.WaitForConnected(entry);
-
-        entry.Client.Dispose();
-        entry.Client.Dispose();
-        entry.Client.IsOpen.Should().BeFalse();
-
-        harness.Drain();
-        entry.Events.Count(e => e.Kind == NetEventKind.Disconnected).Should().Be(1);
-    }
-
-    [Fact]
     public void Server_sheds_inbound_payloads_past_the_inbox_cap()
     {
         const int inboxCap = 8;
@@ -365,28 +329,6 @@ public sealed class UdpTransportIntegrationTests
         drained.Count(e => e.Kind == NetEventKind.Received).Should().BeLessThanOrEqualTo(
             inboxCap, "the bounded inbox never holds more than the configured cap of payload events");
         harness.Server.IsOpen.Should().BeTrue("shedding a flood must not tear the server down");
-    }
-
-    [Fact]
-    public void Bind_rejects_a_non_positive_inbox_cap()
-    {
-        var act = () => UdpServerTransport.Bind(
-            "bad-inbox",
-            new IPEndPoint(IPAddress.Loopback, 0),
-            new UdpTransportOptions { MaxInboundQueuedEvents = 0 });
-
-        act.Should().Throw<ArgumentOutOfRangeException>();
-    }
-
-    [Fact]
-    public void Client_ctor_rejects_a_non_positive_inbox_cap()
-    {
-        var act = () => new UdpClientTransport(
-            "bad-inbox",
-            new IPEndPoint(IPAddress.Loopback, 9),
-            new UdpTransportOptions { MaxInboundQueuedEvents = 0 });
-
-        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     [Fact]
@@ -430,44 +372,6 @@ public sealed class UdpTransportIntegrationTests
         delivered.Should().BeLessThan(
             floodCount, "the per-peer rate limiter bounds a flood far below the payloads sent");
         harness.Server.IsOpen.Should().BeTrue("rate limiting a peer must not tear the server down");
-    }
-
-    [Fact]
-    public void Server_transport_surfaces_its_guard_counters_through_the_diagnostics_capability()
-    {
-        using var harness = UdpIntegrationHarness.Start();
-
-        harness.Server.Should().BeAssignableTo<INetServerTransportDiagnostics>(
-            "the engine telemetry layer reads the DoS-guard counters through this capability");
-        var diagnostics = (INetServerTransportDiagnostics)harness.Server;
-
-        // The capability re-exposes the same live counters the concrete transport publishes; the
-        // connection-reject member maps onto the UDP-specific RejectedHelloCount.
-        diagnostics.RejectedConnectionCount.Should().Be(harness.Server.RejectedHelloCount);
-        diagnostics.DroppedInboundPayloadCount.Should().Be(harness.Server.DroppedInboundPayloadCount);
-        diagnostics.RateLimitedInboundPayloadCount.Should().Be(harness.Server.RateLimitedInboundPayloadCount);
-    }
-
-    [Fact]
-    public void Bind_rejects_a_non_positive_per_peer_burst()
-    {
-        var act = () => UdpServerTransport.Bind(
-            "bad-burst",
-            new IPEndPoint(IPAddress.Loopback, 0),
-            new UdpTransportOptions { MaxInboundPayloadBurstPerPeer = 0 });
-
-        act.Should().Throw<ArgumentOutOfRangeException>();
-    }
-
-    [Fact]
-    public void Bind_rejects_a_non_positive_per_peer_refill_rate()
-    {
-        var act = () => UdpServerTransport.Bind(
-            "bad-refill",
-            new IPEndPoint(IPAddress.Loopback, 0),
-            new UdpTransportOptions { InboundPayloadRefillPerSecondPerPeer = 0 });
-
-        act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
     private static void ForceCloseSocket(object transport)

@@ -6,6 +6,7 @@ using Opus.Content.Packaging.Diagnostics;
 using Opus.Content.Packaging.Generation;
 using Opus.Content.Packaging.Manifest;
 using Opus.Content.Packaging.Validation;
+using Opus.Foundation.IO;
 using ContentPackageValidator = Opus.Content.Packaging.Validation.PackageValidator;
 
 namespace Opus.Tool.PackageValidator;
@@ -21,8 +22,6 @@ internal static class PackageGenerateCommand
 {
     private const string DefaultLocale = "en";
     private const string RussianLocale = "ru";
-    private const string TempExtension = ".tmp";
-
     private static readonly HashSet<string> SupportedLocales = new(StringComparer.Ordinal)
     {
         DefaultLocale,
@@ -192,21 +191,7 @@ internal static class PackageGenerateCommand
 
     private static void WriteManifestAtomic(string finalPath, string content)
     {
-        var directory = Path.GetDirectoryName(Path.GetFullPath(finalPath));
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        var tempPath = finalPath + TempExtension;
-        File.WriteAllText(tempPath, content, Encoding.UTF8);
-        if (File.Exists(finalPath))
-        {
-            File.Replace(tempPath, finalPath, destinationBackupFileName: null);
-            return;
-        }
-
-        File.Move(tempPath, finalPath);
+        AtomicFile.WriteAllText(finalPath, content);
     }
 
     private static void ReportSuccess(

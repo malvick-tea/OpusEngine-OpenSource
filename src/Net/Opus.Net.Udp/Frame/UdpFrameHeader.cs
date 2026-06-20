@@ -5,15 +5,16 @@ using Opus.Net.Transport;
 namespace Opus.Net.Udp.Frame;
 
 /// <summary>
-/// Fixed 16-byte UDP frame header. Layout (little-endian, byte offsets):
+/// Fixed UDP frame header. Layout (little-endian, byte offsets):
 /// <code>
 /// [0..3]   magic 'G' 'U' 'D' 'P'   (4 bytes)
 /// [4]      protocol version         (1 byte)
 /// [5]      kind (UdpFrameKind)      (1 byte)
 /// [6..7]   payload length (UInt16)  (2 bytes)
 /// [8..15]  connection id (UInt64)   (8 bytes)
+/// [16..23] sequence number (UInt64)  (8 bytes)
 /// </code>
-/// Total <see cref="SizeBytes"/> = 16. The payload follows the header inline.
+/// The payload follows the header and a 32-byte HMAC-SHA256 tag terminates the datagram.
 /// </summary>
 /// <remarks>
 /// The magic + version pair lets the receiver reject stray non-Opus datagrams in a
@@ -26,18 +27,22 @@ namespace Opus.Net.Udp.Frame;
 public readonly record struct UdpFrameHeader(
     UdpFrameKind Kind,
     ConnectionId ConnectionId,
-    ushort PayloadLength)
+    ushort PayloadLength,
+    ulong Sequence)
 {
     /// <summary>Header byte count. The payload follows immediately after.</summary>
-    public const int SizeBytes = 16;
+    public const int SizeBytes = 24;
+
+    /// <summary>Authentication tag byte count appended after the payload.</summary>
+    public const int AuthenticationTagBytes = 32;
 
     /// <summary>Protocol version. Bump when the wire shape changes; old peers see a
     /// version mismatch and drop the frame instead of misparsing.</summary>
-    public const byte CurrentVersion = 1;
+    public const byte CurrentVersion = 2;
 
     /// <summary>Largest payload one datagram can carry — limited by the 16-bit length
     /// field. Bytes; not packets per second.</summary>
-    public const ushort MaxPayloadBytes = ushort.MaxValue;
+    public const ushort MaxPayloadBytes = 65451;
 
     /// <summary>Offset (from the start of the buffer) where the payload begins. Mirrors
     /// <see cref="SizeBytes"/> — separate name for readability at codec call sites.</summary>
@@ -45,7 +50,7 @@ public readonly record struct UdpFrameHeader(
 
     /// <summary>Maximum total datagram size, header + payload — useful for sizing send
     /// scratch buffers without two adds at the call site.</summary>
-    public const int MaxDatagramBytes = SizeBytes + MaxPayloadBytes;
+    public const int MaxDatagramBytes = SizeBytes + MaxPayloadBytes + AuthenticationTagBytes;
 
     /// <summary>Fixed magic prefix — ASCII 'G','U','D','P'. Datagrams without this prefix
     /// are not Opus UDP traffic and must be silently dropped.</summary>

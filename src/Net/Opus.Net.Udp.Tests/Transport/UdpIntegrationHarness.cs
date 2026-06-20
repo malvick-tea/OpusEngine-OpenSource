@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using Opus.Net.Transport;
+using Opus.Net.Udp.Frame;
 using Opus.Net.Udp.Transport;
 
 namespace Opus.Net.Udp.Tests.Transport;
@@ -16,6 +17,9 @@ namespace Opus.Net.Udp.Tests.Transport;
 /// </summary>
 internal sealed class UdpIntegrationHarness : IDisposable
 {
+    private static readonly byte[] TestAuthenticationKey =
+        UdpAuthentication.DeriveKey("opus-udp-integration-tests-only");
+
     private readonly List<NetEvent> _scratch = new();
 
     private UdpIntegrationHarness(
@@ -47,6 +51,9 @@ internal sealed class UdpIntegrationHarness : IDisposable
         ConnectTimeout = TimeSpan.FromSeconds(2),
     };
 
+    public static UdpTransportOptions AuthenticatedFastOptions() =>
+        FastOptions() with { AuthenticationKey = TestAuthenticationKey };
+
     public static UdpIntegrationHarness Start(string serverName = "server")
     {
         return Start(serverName, FastOptions);
@@ -54,9 +61,17 @@ internal sealed class UdpIntegrationHarness : IDisposable
 
     public static UdpIntegrationHarness Start(string serverName, Func<UdpTransportOptions> optionsFactory)
     {
+        UdpTransportOptions AuthenticatedOptions()
+        {
+            var options = optionsFactory();
+            return options.AuthenticationKey.IsEmpty
+                ? options with { AuthenticationKey = TestAuthenticationKey }
+                : options;
+        }
+
         var listenEndpoint = new IPEndPoint(IPAddress.Loopback, 0);
-        var server = UdpServerTransport.Bind(serverName, listenEndpoint, optionsFactory());
-        return new UdpIntegrationHarness(server, optionsFactory);
+        var server = UdpServerTransport.Bind(serverName, listenEndpoint, AuthenticatedOptions());
+        return new UdpIntegrationHarness(server, AuthenticatedOptions);
     }
 
     public ClientEntry AddClient(string name = "client")

@@ -3,29 +3,19 @@ using System;
 namespace Opus.Engine.Audio;
 
 /// <summary>
-/// Three linear-gain knobs (master / music / sfx) that the host's settings screen
-/// writes to and the concrete audio backend reads from. Gains compose multiplicatively
-/// — <see cref="EffectiveMusic"/> = <c>Master × Music</c>, <see cref="EffectiveSfx"/> =
-/// <c>Master × Sfx</c>. Subscribers (the Raylib backend, post-fx busses, the menu
-/// audio preview) listen on <see cref="Changed"/> to re-apply gain to live voices.
+/// Thread-safe linear-gain controls shared by settings UI and audio backends.
+/// Effective gains compose the master gain with the music or sound-effects gain.
 /// </summary>
 /// <remarks>
-/// <para>
-/// Backend-agnostic by design — this lives in <c>Opus.Engine.Audio</c> with zero
-/// dependency on Raylib / Wwise / FMOD. The same mixer drives every audio backend.
-/// </para>
-/// <para>
-/// Gains are clamped to <c>[0, 1]</c>. NaN / Infinity / negative inputs round to zero;
-/// values above 1 round down. There is no "boost above unity" knob — boosting is the
-/// content side's job (re-master the source). This is per ADR-0021 (Wwise eventually
-/// replaces this; the mixer surface is identical so screens don't have to change).
-/// </para>
+/// Gains are clamped to <c>[0, 1]</c>. Non-finite and negative inputs become zero.
+/// Change callbacks run outside the state lock so subscribers may safely read the mixer.
 /// </remarks>
 public sealed class AudioMixer
 {
     private const float MinGain = 0f;
     private const float MaxGain = 1f;
 
+    private readonly object _sync = new();
     private float _master;
     private float _music;
     private float _sfx;
@@ -39,15 +29,60 @@ public sealed class AudioMixer
 
     public event Action? Changed;
 
-    public float MasterGain => _master;
+    public float MasterGain
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _master;
+            }
+        }
+    }
 
-    public float MusicGain => _music;
+    public float MusicGain
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _music;
+            }
+        }
+    }
 
-    public float SfxGain => _sfx;
+    public float SfxGain
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _sfx;
+            }
+        }
+    }
 
-    public float EffectiveMusic => _master * _music;
+    public float EffectiveMusic
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _master * _music;
+            }
+        }
+    }
 
-    public float EffectiveSfx => _master * _sfx;
+    public float EffectiveSfx
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _master * _sfx;
+            }
+        }
+    }
 
     public void SetMaster(float gain) => Mutate(ref _master, gain);
 
@@ -55,34 +90,45 @@ public sealed class AudioMixer
 
     public void SetSfx(float gain) => Mutate(ref _sfx, gain);
 
-    /// <summary>Applies all three gains in one notification so subscribers don't see an
-    /// inconsistent partial state when the settings screen flushes a batch update.</summary>
+    /// <summary>Applies a coherent gain set and emits at most one notification.</summary>
     public void Set(float master, float music, float sfx)
     {
         var newMaster = Sanitise(master);
         var newMusic = Sanitise(music);
         var newSfx = Sanitise(sfx);
-        if (newMaster == _master && newMusic == _music && newSfx == _sfx)
+        Action? changed;
+        lock (_sync)
         {
-            return;
+            if (newMaster == _master && newMusic == _music && newSfx == _sfx)
+            {
+                return;
+            }
+
+            _master = newMaster;
+            _music = newMusic;
+            _sfx = newSfx;
+            changed = Changed;
         }
 
-        _master = newMaster;
-        _music = newMusic;
-        _sfx = newSfx;
-        Changed?.Invoke();
+        changed?.Invoke();
     }
 
     private void Mutate(ref float field, float value)
     {
         var sanitised = Sanitise(value);
-        if (sanitised == field)
+        Action? changed;
+        lock (_sync)
         {
-            return;
+            if (sanitised == field)
+            {
+                return;
+            }
+
+            field = sanitised;
+            changed = Changed;
         }
 
-        field = sanitised;
-        Changed?.Invoke();
+        changed?.Invoke();
     }
 
     private static float Sanitise(float value)

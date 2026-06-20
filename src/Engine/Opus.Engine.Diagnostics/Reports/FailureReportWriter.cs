@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Opus.Engine.Diagnostics;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 
 namespace Opus.Engine.Diagnostics.Reports;
 
@@ -24,7 +25,6 @@ public sealed class FailureReportWriter
 {
     private const string JsonExtension = ".json";
     private const string TextExtension = ".txt";
-    private const string TempExtension = ".tmp";
     private const string DefaultScreenshotExtension = ".png";
     private const string TextIndent = "  ";
     private const string RowSeparator = ": ";
@@ -108,8 +108,8 @@ public sealed class FailureReportWriter
 
         try
         {
-            WriteAtomic(jsonPath, JsonSerializer.Serialize(report, JsonOptions));
-            WriteAtomic(textPath, BuildText(report));
+            AtomicFile.WriteAllText(jsonPath, JsonSerializer.Serialize(report, JsonOptions));
+            AtomicFile.WriteAllText(textPath, BuildText(report));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -134,19 +134,6 @@ public sealed class FailureReportWriter
         return FailureReportWriteResult.Success(jsonPath, textPath, attachedScreenshot);
     }
 
-    private static void WriteAtomic(string finalPath, string content)
-    {
-        var tempPath = finalPath + TempExtension;
-        File.WriteAllText(tempPath, content, Encoding.UTF8);
-        if (File.Exists(finalPath))
-        {
-            File.Replace(tempPath, finalPath, destinationBackupFileName: null);
-            return;
-        }
-
-        File.Move(tempPath, finalPath);
-    }
-
     /// <summary>Copies the report's screenshot next to the freshly written bundle so the
     /// JSON + text + image share one stem and travel together (including through the
     /// retention sweep). Best-effort: a missing source or a filesystem failure leaves the
@@ -166,37 +153,14 @@ public sealed class FailureReportWriter
         }
 
         var destinationPath = Path.Combine(_options.DirectoryPath, stem + extension);
-        var tempPath = destinationPath + TempExtension;
         try
         {
-            File.Copy(report.ScreenshotPath, tempPath, overwrite: true);
-            File.Move(tempPath, destinationPath);
+            AtomicFile.Copy(report.ScreenshotPath, destinationPath);
             return destinationPath;
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException || IsFilesystemException(ex))
         {
-            TryDeleteLeftoverTemp(tempPath);
             return null;
-        }
-    }
-
-    private static void TryDeleteLeftoverTemp(string tempPath)
-    {
-        // Best-effort cleanup of a partial copy so the directory keeps no .tmp litter; a
-        // surviving temp is harmless (the retention sweeper does not classify it) and is
-        // overwritten on the next attempt.
-        try
-        {
-            if (File.Exists(tempPath))
-            {
-                File.Delete(tempPath);
-            }
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
         }
     }
 

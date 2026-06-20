@@ -116,7 +116,7 @@ public static class GltfImageReader
             }
 
             var bv = bufferViews[bvIdx];
-            if (bv.ByteOffset < 0 || bv.ByteLength <= 0 || bv.ByteOffset + bv.ByteLength > bin.Length)
+            if (!IsValidRange(bv.ByteOffset, bv.ByteLength, bin.Length))
             {
                 throw new InvalidDataException(
                     $"Image bufferView {bvIdx} out of range: offset={bv.ByteOffset}, length={bv.ByteLength}, bin={bin.Length}.");
@@ -215,7 +215,7 @@ public static class GltfImageReader
         }
 
         var bv = bufferViews[bvIdx];
-        if (bv.ByteOffset < 0 || bv.ByteLength <= 0 || bv.ByteOffset + bv.ByteLength > bin.Length)
+        if (!IsValidRange(bv.ByteOffset, bv.ByteLength, bin.Length))
         {
             return null;
         }
@@ -224,6 +224,11 @@ public static class GltfImageReader
         Array.Copy(bin, bv.ByteOffset, bytes, 0, bv.ByteLength);
         return new GltfTextureBlob(image.MimeType ?? "image/octet-stream", bytes);
     }
+
+    private static bool IsValidRange(int offset, int length, int bufferLength) =>
+        offset >= 0
+        && length > 0
+        && (long)offset + length <= bufferLength;
 
     private static readonly IReadOnlyDictionary<int, GltfTextureBlob> EmptyImageDictionary =
         new Dictionary<int, GltfTextureBlob>();

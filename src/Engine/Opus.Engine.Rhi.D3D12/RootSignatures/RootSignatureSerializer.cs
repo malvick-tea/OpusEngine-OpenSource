@@ -12,6 +12,7 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// </summary>
 internal static unsafe class RootSignatureSerializer
 {
+    private const int MaxErrorBlobBytes = 1024 * 1024;
     private static readonly D3D12 D3D12Api = D3D12.GetApi();
 
     public static D3D12RootSignature Build(
@@ -44,9 +45,7 @@ internal static unsafe class RootSignatureSerializer
             var hr = D3D12Api.SerializeVersionedRootSignature(&desc, &serialized, &errorBlob);
             if (hr < 0)
             {
-                var msg = errorBlob != null && errorBlob->GetBufferSize() > 0
-                    ? System.Text.Encoding.ASCII.GetString((byte*)errorBlob->GetBufferPointer(), (int)errorBlob->GetBufferSize())
-                    : "(no error blob)";
+                var msg = ReadErrorBlob(errorBlob);
                 throw new InvalidOperationException($"D3D12SerializeVersionedRootSignature failed: {msg}");
             }
 
@@ -73,5 +72,23 @@ internal static unsafe class RootSignatureSerializer
                 errorBlob->Release();
             }
         }
+    }
+
+    private static string ReadErrorBlob(ID3D10Blob* errorBlob)
+    {
+        if (errorBlob == null || errorBlob->GetBufferSize() == 0)
+        {
+            return "(no error blob)";
+        }
+
+        var size = errorBlob->GetBufferSize();
+        if (size > MaxErrorBlobBytes)
+        {
+            return $"(error blob exceeded {MaxErrorBlobBytes} bytes)";
+        }
+
+        return System.Text.Encoding.ASCII.GetString(
+            (byte*)errorBlob->GetBufferPointer(),
+            checked((int)size));
     }
 }

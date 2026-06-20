@@ -42,6 +42,8 @@ public sealed record LatencyLossInjectionProfile(
     /// <c>0</c>.</summary>
     public int InboundSeed { get; init; }
 
+    public int MaxPendingPackets { get; init; } = 4096;
+
     /// <summary>Default profile — no loss, no latency, fixed seed. Equivalent to a
     /// pass-through wrapper in both directions.</summary>
     public static LatencyLossInjectionProfile None { get; } = new(
@@ -78,6 +80,13 @@ public sealed record LatencyLossInjectionProfile(
             throw new ArgumentOutOfRangeException(
                 nameof(InboundAddedLatency),
                 "InboundAddedLatency must be non-negative.");
+        }
+
+        if (MaxPendingPackets < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(MaxPendingPackets),
+                "MaxPendingPackets must be at least 1.");
         }
     }
 }

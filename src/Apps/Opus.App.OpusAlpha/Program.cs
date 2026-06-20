@@ -44,22 +44,38 @@ internal static class Program
 
     private static int RunWindow(OpusAlphaArgs args, ConsoleLog consoleLog)
     {
-        if (!TryResolveConsumer(args, consoleLog, out var integration, out var failureExitCode))
+        if (!TryResolveConsumer(
+                args,
+                consoleLog,
+                out var integration,
+                out var consumerLifetime,
+                out var failureExitCode))
         {
             return failureExitCode;
         }
 
-        return OpusAlphaWindowRunner.Run(args, consoleLog, integration);
+        using (consumerLifetime)
+        {
+            return OpusAlphaWindowRunner.Run(args, consoleLog, integration);
+        }
     }
 
     private static int RunSmoke(OpusAlphaArgs args, ConsoleLog consoleLog)
     {
-        if (!TryResolveConsumer(args, consoleLog, out var integration, out var failureExitCode))
+        if (!TryResolveConsumer(
+                args,
+                consoleLog,
+                out var integration,
+                out var consumerLifetime,
+                out var failureExitCode))
         {
             return failureExitCode;
         }
 
-        return OpusAlphaSmokeRunner.Run(args, consoleLog, integration);
+        using (consumerLifetime)
+        {
+            return OpusAlphaSmokeRunner.Run(args, consoleLog, integration);
+        }
     }
 
     /// <summary>Resolves the optional <c>--consumer</c> integration shared by the window and smoke
@@ -71,10 +87,12 @@ internal static class Program
         OpusAlphaArgs args,
         ConsoleLog consoleLog,
         out ConsumerIntegration? integration,
+        out IDisposable? consumerLifetime,
         out int failureExitCode)
     {
         var resolution = ConsumerIntegrationStartup.Resolve(args.ConsumerAssemblyPath);
         integration = resolution.Integration;
+        consumerLifetime = resolution.Lifetime;
         failureExitCode = ConsumerLoadFailureExitCode;
         if (!resolution.CanProceed)
         {

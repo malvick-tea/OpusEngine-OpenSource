@@ -28,6 +28,10 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// model for D3D12, scales up to triple buffering by changing <see cref="BufferCount"/>
 /// at construction.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only unmanaged swap-chain resources and handles.")]
 public sealed unsafe class D3D12SwapChain : IDisposable
 {
     public const int BufferCount = 2;
@@ -45,6 +49,11 @@ public sealed unsafe class D3D12SwapChain : IDisposable
     private int _width;
     private int _height;
     private bool _disposed;
+
+    ~D3D12SwapChain()
+    {
+        ReleaseNative();
+    }
 
     private D3D12SwapChain(D3D12RhiDevice owningDevice, int width, int height)
     {
@@ -90,8 +99,16 @@ public sealed unsafe class D3D12SwapChain : IDisposable
         }
 
         var instance = new D3D12SwapChain(device, width, height);
-        instance.Initialise(hwnd);
-        return instance;
+        try
+        {
+            instance.Initialise(hwnd);
+            return instance;
+        }
+        catch
+        {
+            instance.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -184,6 +201,13 @@ public sealed unsafe class D3D12SwapChain : IDisposable
             // Best-effort — we're tearing down anyway.
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         for (var i = 0; i < BufferCount; i++)
         {
             if (_backBuffers[i] != null)
@@ -216,8 +240,6 @@ public sealed unsafe class D3D12SwapChain : IDisposable
             CloseHandle(_fenceEvent);
             _fenceEvent = 0;
         }
-
-        _disposed = true;
     }
 
     private void Initialise(IntPtr hwnd)

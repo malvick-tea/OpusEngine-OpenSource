@@ -30,7 +30,7 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// culling yet (that's the Forward+ extension for M3-wrap.b.1). Local lights on
 /// <see cref="LightingSetup.LocalLights"/> are ignored at this milestone.
 /// </para></summary>
-public sealed unsafe class D3D12ForwardSceneRenderer : IDisposable
+public sealed unsafe partial class D3D12ForwardSceneRenderer : IDisposable
 {
     private const int SceneCbSize = 256;
 
@@ -94,30 +94,20 @@ public sealed unsafe class D3D12ForwardSceneRenderer : IDisposable
         _width = viewportWidth;
         _height = viewportHeight;
 
-        var sceneVs = compiler.Compile(ForwardSceneShaders.SceneVertexShader, "main", "vs_6_0", $"{namePrefix}.scene.vs.hlsl");
-        var scenePs = compiler.Compile(ForwardSceneShaders.ScenePixelShader, "main", "ps_6_0", $"{namePrefix}.scene.ps.hlsl");
-        _sceneRootSig = D3D12RootSignatureFactory.CreateInstancedPbrScene(device, InstancedDrawConstants.Num32BitValues);
-        _scenePso = D3D12GraphicsPipelineFactory.CreatePosNormalUvLitDepth(
-            device, _sceneRootSig, sceneVs, scenePs,
-            renderTargetFormat: Format.FormatR16G16B16A16Float,
-            depthStencilFormat: Format.FormatD32Float);
-
-        var tonemapVs = compiler.Compile(TonemapShaders.VertexShader, "main", "vs_6_0", $"{namePrefix}.tonemap.vs.hlsl");
-        var tonemapPs = compiler.Compile(TonemapShaders.PixelShader, "main", "ps_6_0", $"{namePrefix}.tonemap.ps.hlsl");
-        _tonemapRootSig = D3D12RootSignatureFactory.CreateTonemapPost(device);
-        _tonemapPso = D3D12GraphicsPipelineFactory.CreateFullscreenPostProcess(
-            device, _tonemapRootSig, tonemapVs, tonemapPs, backbufferFormat);
-
-        _targets = new ForwardSceneTargets(device, viewportWidth, viewportHeight, namePrefix);
-
-        _sceneCbs = new D3D12Buffer[D3D12SwapChain.BufferCount];
-        for (var i = 0; i < D3D12SwapChain.BufferCount; i++)
-        {
-            _sceneCbs[i] = device.CreateGraphicsBuffer(new RhiBufferDescription(
-                $"{namePrefix}.scene.cb.{i}", SceneCbSize, RhiBufferUsage.Uniform));
-        }
-
-        _instanceRing = new SceneInstanceBufferRing(device, D3D12SwapChain.BufferCount, namePrefix);
+        var resources = CreateResources(
+            device,
+            compiler,
+            backbufferFormat,
+            viewportWidth,
+            viewportHeight,
+            namePrefix);
+        _sceneRootSig = resources.SceneRootSignature;
+        _scenePso = resources.ScenePipeline;
+        _tonemapRootSig = resources.TonemapRootSignature;
+        _tonemapPso = resources.TonemapPipeline;
+        _targets = resources.Targets;
+        _sceneCbs = resources.SceneConstantBuffers;
+        _instanceRing = resources.InstanceRing;
     }
 
     /// <summary>Recreates the size-dependent offscreen targets (HDR colour + depth + their
@@ -347,71 +337,4 @@ public sealed unsafe class D3D12ForwardSceneRenderer : IDisposable
         _sceneRootSig.Dispose();
         _disposed = true;
     }
-
-    private static void WriteSceneConstants(D3D12Buffer buffer, in ForwardSceneConstants value)
-    {
-        var bytes = new byte[SceneCbSize];
-        MemoryMarshal.Write(bytes.AsSpan(0, Marshal.SizeOf<ForwardSceneConstants>()), in value);
-        buffer.Upload(bytes);
-    }
-
-    private void UploadSceneConstants(uint slot, FrameCameraSet cameras, LightingSetup lighting)
-    {
-        var constants = ForwardSceneConstants.From(cameras.Main, lighting.Sun, lighting.Sky.ZenithColour);
-        WriteSceneConstants(_sceneCbs[slot], in constants);
-    }
-
-    private ForwardScenePass BuildPasses(
-        D3D12FrameGraph fg,
-        FrameGraphResource colorHandle,
-        CpuDescriptorHandle colorRtv,
-        int viewportW,
-        int viewportH,
-        ResourceStates colorFinalState,
-        GpuScene gpuScene,
-        IReadOnlyList<SceneMeshBatch> batches,
-        D3D12Buffer instanceBuffer,
-        IMaterialAtlas materials,
-        LightingSetup lighting,
-        uint sceneCbSlot,
-        float clearAlpha)
-    {
-        var hdrHandle = fg.ImportTexture(_targets.HdrColor, initialState: ResourceStates.PixelShaderResource);
-        var depthHandle = fg.ImportTexture(_targets.Depth, initialState: ResourceStates.DepthWrite);
-
-        var scenePass = new ForwardScenePass(
-            hdrHandle, depthHandle, _sceneRootSig, _scenePso,
-            _sceneCbs[sceneCbSlot], instanceBuffer, _targets.HdrRtvHandle, _targets.DsvHandle,
-            gpuScene, batches, materials, lighting.Sky.HorizonColour, _width, _height,
-            clearAlpha);
-        fg.AddPass(scenePass);
-
-        fg.AddPass(new TonemapPass(
-            colorHandle, hdrHandle, _tonemapRootSig, _tonemapPso,
-            colorRtv, _targets.HdrSrvHeap, _targets.HdrSrvTable,
-            viewportW, viewportH));
-
-        fg.EnsureFinalState(colorHandle, colorFinalState);
-        fg.EnsureFinalState(hdrHandle, ResourceStates.PixelShaderResource);
-        fg.EnsureFinalState(depthHandle, ResourceStates.DepthWrite);
-        return scenePass;
-    }
-
-    private static void ValidateRenderArguments(
-        D3D12Renderer renderer,
-        IReadOnlyList<SceneNodeDraw> nodeDraws,
-        IMaterialAtlas materials,
-        FrameCameraSet cameras,
-        LightingSetup lighting,
-        PostFxSetup postFx)
-    {
-        ArgumentNullException.ThrowIfNull(renderer);
-        ArgumentNullException.ThrowIfNull(nodeDraws);
-        ArgumentNullException.ThrowIfNull(materials);
-        ArgumentNullException.ThrowIfNull(cameras);
-        ArgumentNullException.ThrowIfNull(lighting);
-        ArgumentNullException.ThrowIfNull(postFx);
-    }
-
-    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }

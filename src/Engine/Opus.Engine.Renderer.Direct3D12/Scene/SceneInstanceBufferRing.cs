@@ -76,6 +76,12 @@ public sealed class SceneInstanceBufferRing : IDisposable
         var newCapacity = _capacity;
         while (newCapacity < instanceCount)
         {
+            if (newCapacity > int.MaxValue / 2)
+            {
+                throw new InvalidOperationException(
+                    $"Instance count {instanceCount} exceeds the supported GPU buffer capacity.");
+            }
+
             newCapacity *= 2;
         }
 
@@ -93,7 +99,7 @@ public sealed class SceneInstanceBufferRing : IDisposable
     private D3D12Buffer CreateSlotBuffer(int slot, int capacity) =>
         _device.CreateGraphicsBuffer(new RhiBufferDescription(
             $"{_namePrefix}.instances.{slot}",
-            capacity * GpuInstanceData.SizeBytes,
+            checked(capacity * GpuInstanceData.SizeBytes),
             RhiBufferUsage.Structured));
 
     public void Dispose()

@@ -2,87 +2,152 @@ using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using Opus.Engine.Pal.Process;
 
 namespace Opus.Engine.Pal.Windows.Process;
 
 /// <summary>
-/// Minimal AppDomain-level catcher for unhandled exceptions. Real minidump emission and
-/// symbol upload happen later (layout v2 §7 — <c>MinidumpWriter</c>); this M1b version
-/// just writes a flat text dump alongside the user log directory and fires the event so
-/// the splash / error screen can pick it up next launch.
+/// AppDomain-level crash capture with bounded breadcrumbs and explicit unsubscription.
 /// </summary>
-public sealed class WindowsCrashHandler : ICrashHandler
+public sealed class WindowsCrashHandler : ICrashHandler, IDisposable
 {
-    private readonly string _crashDir;
-    private readonly ConcurrentQueue<(string Category, string Message)> _breadcrumbs = new();
-    private bool _installed;
+    private const int MaximumBreadcrumbs = 64;
+    private const int MaximumCategoryLength = 128;
+    private const int MaximumMessageLength = 2048;
 
-    public WindowsCrashHandler(string crashDir)
+    private readonly object _installationSync = new();
+    private readonly string _crashDirectory;
+    private readonly ConcurrentQueue<(string Category, string Message)> _breadcrumbs = new();
+    private int _breadcrumbCount;
+    private int _installed;
+    private volatile bool _disposed;
+
+    public WindowsCrashHandler(string crashDirectory)
     {
-        _crashDir = crashDir;
+        ArgumentException.ThrowIfNullOrWhiteSpace(crashDirectory);
+        _crashDirectory = Path.GetFullPath(crashDirectory);
     }
 
-    public bool IsInstalled => _installed;
+    public bool IsInstalled => Volatile.Read(ref _installed) != 0;
 
     public event Action<CrashReport>? CrashCaptured;
 
     public void Install()
     {
-        if (_installed)
+        lock (_installationSync)
         {
-            return;
-        }
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_installed != 0)
+            {
+                return;
+            }
 
-        AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
-        _installed = true;
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandled;
+            Volatile.Write(ref _installed, 1);
+        }
     }
 
     public void AddBreadcrumb(string category, string message)
     {
-        _breadcrumbs.Enqueue((category, message));
-        while (_breadcrumbs.Count > 64 && _breadcrumbs.TryDequeue(out _))
+        ArgumentNullException.ThrowIfNull(category);
+        ArgumentNullException.ThrowIfNull(message);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        _breadcrumbs.Enqueue((
+            Truncate(category, MaximumCategoryLength),
+            Truncate(message, MaximumMessageLength)));
+        Interlocked.Increment(ref _breadcrumbCount);
+        while (Volatile.Read(ref _breadcrumbCount) > MaximumBreadcrumbs
+               && _breadcrumbs.TryDequeue(out _))
         {
-            // keep last 64 entries.
+            Interlocked.Decrement(ref _breadcrumbCount);
         }
     }
 
-    private void OnUnhandled(object sender, UnhandledExceptionEventArgs e)
+    private void OnUnhandled(object sender, UnhandledExceptionEventArgs eventArgs)
     {
-        if (e.ExceptionObject is not Exception ex)
+        if (eventArgs.ExceptionObject is not Exception exception)
         {
             return;
         }
 
-        Directory.CreateDirectory(_crashDir);
-        var stamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
-        var path = Path.Combine(_crashDir, $"crash-{stamp}.txt");
-
+        var capturedAt = DateTimeOffset.UtcNow;
+        var stamp = capturedAt.ToString("yyyyMMdd-HHmmssfff", CultureInfo.InvariantCulture);
+        var path = Path.Combine(_crashDirectory, $"crash-{stamp}-{Guid.NewGuid():N}.txt");
         try
         {
-            using var w = new StreamWriter(path);
-            w.WriteLine($"# Opus crash @ {stamp}");
-            w.WriteLine($"## Exception: {ex.GetType().FullName}: {ex.Message}");
-            w.WriteLine();
-            w.WriteLine("## Stack trace:");
-            w.WriteLine(ex.ToString());
-            w.WriteLine();
-            w.WriteLine("## Breadcrumbs:");
-            foreach (var (c, m) in _breadcrumbs)
+            Directory.CreateDirectory(_crashDirectory);
+            using var writer = new StreamWriter(new FileStream(
+                path,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.Read));
+            writer.WriteLine($"# Opus crash @ {stamp}");
+            writer.WriteLine($"## Exception: {exception.GetType().FullName}: {exception.Message}");
+            writer.WriteLine();
+            writer.WriteLine("## Stack trace:");
+            writer.WriteLine(exception);
+            writer.WriteLine();
+            writer.WriteLine("## Breadcrumbs:");
+            foreach (var (category, message) in _breadcrumbs)
             {
-                w.WriteLine($"  [{c}] {m}");
+                writer.WriteLine($"  [{category}] {message}");
             }
         }
         catch
         {
-            // If we can't even write the crash, swallow — the OS is about to take us down anyway.
+            // Crash capture must not replace the original unhandled exception.
         }
 
-        CrashCaptured?.Invoke(new CrashReport(
-            ExceptionType: ex.GetType().FullName ?? "<unknown>",
-            Message: ex.Message,
-            StackTrace: ex.StackTrace ?? string.Empty,
-            CapturedAt: DateTimeOffset.UtcNow,
-            MinidumpPath: path));
+        var report = new CrashReport(
+            ExceptionType: exception.GetType().FullName ?? "<unknown>",
+            Message: exception.Message,
+            StackTrace: exception.StackTrace ?? string.Empty,
+            CapturedAt: capturedAt,
+            MinidumpPath: path);
+        NotifySafely(report);
+    }
+
+    private void NotifySafely(CrashReport report)
+    {
+        var handlers = CrashCaptured;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        foreach (Action<CrashReport> handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler(report);
+            }
+            catch
+            {
+                // Observer failures must not interfere with process-level crash handling.
+            }
+        }
+    }
+
+    private static string Truncate(string value, int maximumLength) =>
+        value.Length <= maximumLength ? value : value[..maximumLength];
+
+    public void Dispose()
+    {
+        lock (_installationSync)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            if (_installed != 0)
+            {
+                AppDomain.CurrentDomain.UnhandledException -= OnUnhandled;
+                Volatile.Write(ref _installed, 0);
+            }
+        }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,16 +38,18 @@ namespace Opus.Net.Udp.Transport;
 public sealed partial class UdpServerTransport : INetTransport, INetServerTransportDiagnostics
 {
     private readonly UdpTransportOptions _options;
+    private readonly byte[] _authenticationKey;
+    private readonly HashSet<IPAddress>? _allowedRemoteAddresses;
     private readonly Socket _socket;
     private readonly Thread _worker;
     private readonly ConcurrentQueue<NetEvent> _inbox = new();
     private readonly byte[] _receiveBuffer = new byte[UdpFrameHeader.MaxDatagramBytes];
     private readonly Dictionary<IPEndPoint, UdpServerPeerSlot> _slotsByEndpoint = new();
     private readonly Dictionary<ConnectionId, UdpServerPeerSlot> _slotsById = new();
+    private readonly Dictionary<IPAddress, HelloSourceRateState> _helloSources = new();
     private readonly object _peersLock = new();
     private readonly ILogger _logger;
 
-    private ulong _nextPeerCounter = 1;
     private long _rejectedHelloCount;
     private long _inboxCount;
     private long _droppedInboundPayloadCount;
@@ -63,14 +66,30 @@ public sealed partial class UdpServerTransport : INetTransport, INetServerTransp
         Name = name;
         BoundEndpoint = boundEndpoint;
         _socket = socket;
-        _options = options;
+        _authenticationKey = options.AuthenticationKey.ToArray();
+        _allowedRemoteAddresses = options.AllowedRemoteAddresses is null
+            ? null
+            : new HashSet<IPAddress>(options.AllowedRemoteAddresses);
+        _options = options with
+        {
+            AuthenticationKey = ReadOnlyMemory<byte>.Empty,
+            AllowedRemoteAddresses = null,
+        };
         _logger = logger;
         _worker = new Thread(WorkerLoop)
         {
             IsBackground = true,
             Name = $"udp-server:{name}",
         };
-        _worker.Start();
+        try
+        {
+            _worker.Start();
+        }
+        catch
+        {
+            CryptographicOperations.ZeroMemory(_authenticationKey);
+            throw;
+        }
     }
 
     public string Name { get; }
@@ -148,7 +167,15 @@ public sealed partial class UdpServerTransport : INetTransport, INetServerTransp
 
         var bound = (IPEndPoint)socket.LocalEndPoint!;
         var resolvedLogger = (ILogger?)logger ?? NullLogger.Instance;
-        return new UdpServerTransport(name, bound, socket, resolvedOptions, resolvedLogger);
+        try
+        {
+            return new UdpServerTransport(name, bound, socket, resolvedOptions, resolvedLogger);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
     }
 
     public bool Send(ConnectionId target, ReadOnlySpan<byte> payload)
@@ -172,11 +199,18 @@ public sealed partial class UdpServerTransport : INetTransport, INetServerTransp
             }
         }
 
-        Span<byte> scratch = stackalloc byte[UdpFrameHeader.SizeBytes + 1024];
-        var totalBytes = UdpFrameHeader.SizeBytes + payload.Length;
+        Span<byte> scratch = stackalloc byte[
+            UdpFrameHeader.SizeBytes + UdpFrameHeader.AuthenticationTagBytes + 1024];
+        var totalBytes = UdpFrameHeader.SizeBytes
+            + payload.Length
+            + UdpFrameHeader.AuthenticationTagBytes;
         var buffer = totalBytes <= scratch.Length ? scratch[..totalBytes] : new byte[totalBytes];
 
-        UdpFrameCodec.Encode(UdpFrameKind.Payload, target, payload, buffer);
+        if (!TryEncodeSessionFrame(UdpFrameKind.Payload, payload, slot, buffer))
+        {
+            return false;
+        }
+
         return TrySendBytes(buffer, slot);
     }
 
@@ -279,5 +313,7 @@ public sealed partial class UdpServerTransport : INetTransport, INetServerTransp
         {
             _worker.Join(TimeSpan.FromSeconds(1));
         }
+
+        CryptographicOperations.ZeroMemory(_authenticationKey);
     }
 }

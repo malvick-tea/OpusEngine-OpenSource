@@ -28,14 +28,14 @@ public sealed class EditorProjectWorkspaceTests
     }
 
     [Fact]
-    public void Rooted_references_are_kept_as_they_are()
+    public void Rooted_references_are_rejected()
     {
         string rooted = Path.Combine(Path.GetTempPath(), "shared-assets");
         var document = Project(new[] { rooted }, Array.Empty<string>());
 
         var workspace = EditorProjectWorkspace.Resolve(document, ProjectDirectory);
 
-        workspace.ContentRoots.Should().Equal(rooted);
+        workspace.ContentRoots.Should().BeEmpty();
     }
 
     [Fact]

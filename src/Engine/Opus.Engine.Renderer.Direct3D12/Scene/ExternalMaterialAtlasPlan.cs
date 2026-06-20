@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Opus.Content.Meshes;
+using Opus.Foundation.IO;
 
 namespace Opus.Engine.Renderer.Direct3D12.Scene;
 
@@ -100,7 +101,13 @@ public static class ExternalMaterialAtlasPlan
     /// <summary>The on-disk path a material's map is expected at, per the
     /// <c>{root}/{materialName}/{materialName}_{map}.png</c> convention.</summary>
     public static string MapPath(string texturesRoot, string materialName, string map)
-        => Path.Combine(texturesRoot, materialName, $"{materialName}_{map}{MapExtension}");
+    {
+        ValidateLeafToken(materialName, nameof(materialName));
+        ValidateLeafToken(map, nameof(map));
+        return PathContainment.ResolveUnderRoot(
+            texturesRoot,
+            Path.Combine(materialName, $"{materialName}_{map}{MapExtension}"));
+    }
 
     private static string MapToken(ExternalMaterialMapKind kind) => kind switch
     {
@@ -110,4 +117,16 @@ public static class ExternalMaterialAtlasPlan
         ExternalMaterialMapKind.Emissive => EmissiveMap,
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown external material map kind."),
     };
+
+    private static void ValidateLeafToken(string value, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        if (value is "." or ".."
+            || value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || value.Contains(Path.DirectorySeparatorChar)
+            || value.Contains(Path.AltDirectorySeparatorChar))
+        {
+            throw new ArgumentException("Material path tokens must be plain file-name segments.", parameterName);
+        }
+    }
 }

@@ -19,6 +19,10 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// <item><description><see cref="HdrSrvHeap"/> + <see cref="HdrSrvTable"/> — the descriptor
 ///     handle <see cref="TonemapPass"/> binds to read HDR.</description></item>
 /// </list></summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only unmanaged descriptor heaps.")]
 public sealed unsafe class ForwardSceneTargets : IDisposable
 {
     public D3D12Texture HdrColor { get; }
@@ -29,32 +33,72 @@ public sealed unsafe class ForwardSceneTargets : IDisposable
 
     public CpuDescriptorHandle DsvHandle { get; }
 
-    public ID3D12DescriptorHeap* HdrSrvHeap { get; }
+    public ID3D12DescriptorHeap* HdrSrvHeap { get; private set; }
 
     public GpuDescriptorHandle HdrSrvTable { get; }
 
-    private readonly ID3D12DescriptorHeap* _rtvHeap;
-    private readonly ID3D12DescriptorHeap* _dsvHeap;
+    private ID3D12DescriptorHeap* _rtvHeap;
+    private ID3D12DescriptorHeap* _dsvHeap;
     private bool _disposed;
+
+    ~ForwardSceneTargets()
+    {
+        ReleaseHeaps();
+    }
 
     public ForwardSceneTargets(D3D12RhiDevice device, int width, int height, string namePrefix = "forward")
     {
-        HdrColor = device.CreateGraphicsTexture(new RhiTextureDescription(
-            $"{namePrefix}.hdr", width, height, 1,
-            RhiTextureFormat.Rgba16Float, RhiTextureUsage.ColorTarget | RhiTextureUsage.Sampled));
+        D3D12Texture? hdrColor = null;
+        D3D12Texture? depth = null;
+        ID3D12DescriptorHeap* rtvHeap = null;
+        ID3D12DescriptorHeap* dsvHeap = null;
+        ID3D12DescriptorHeap* srvHeap = null;
+        try
+        {
+            hdrColor = device.CreateGraphicsTexture(new RhiTextureDescription(
+                $"{namePrefix}.hdr", width, height, 1,
+                RhiTextureFormat.Rgba16Float, RhiTextureUsage.ColorTarget | RhiTextureUsage.Sampled));
+            depth = device.CreateGraphicsTexture(new RhiTextureDescription(
+                $"{namePrefix}.depth", width, height, 1,
+                RhiTextureFormat.D32Float, RhiTextureUsage.DepthStencilTarget));
 
-        Depth = device.CreateGraphicsTexture(new RhiTextureDescription(
-            $"{namePrefix}.depth", width, height, 1,
-            RhiTextureFormat.D32Float, RhiTextureUsage.DepthStencilTarget));
+            rtvHeap = device.CreateRtvDescriptorHeap(1u);
+            HdrRtvHandle = device.CreateRenderTargetView(hdrColor, rtvHeap, slotIndex: 0u);
+            dsvHeap = device.CreateDsvDescriptorHeap(1u);
+            DsvHandle = device.CreateDepthStencilView(depth, dsvHeap);
+            srvHeap = device.CreateSrvDescriptorHeap(1u);
+            HdrSrvTable = device.CreateShaderResourceView(hdrColor, srvHeap, slotIndex: 0u);
 
-        _rtvHeap = device.CreateRtvDescriptorHeap(1u);
-        HdrRtvHandle = device.CreateRenderTargetView(HdrColor, _rtvHeap, slotIndex: 0u);
+            HdrColor = hdrColor;
+            Depth = depth;
+            _rtvHeap = rtvHeap;
+            _dsvHeap = dsvHeap;
+            HdrSrvHeap = srvHeap;
+            rtvHeap = null;
+            dsvHeap = null;
+            srvHeap = null;
+        }
+        catch
+        {
+            if (srvHeap != null)
+            {
+                srvHeap->Release();
+            }
 
-        _dsvHeap = device.CreateDsvDescriptorHeap(1u);
-        DsvHandle = device.CreateDepthStencilView(Depth, _dsvHeap);
+            if (dsvHeap != null)
+            {
+                dsvHeap->Release();
+            }
 
-        HdrSrvHeap = device.CreateSrvDescriptorHeap(1u);
-        HdrSrvTable = device.CreateShaderResourceView(HdrColor, HdrSrvHeap, slotIndex: 0u);
+            if (rtvHeap != null)
+            {
+                rtvHeap->Release();
+            }
+
+            depth?.Dispose();
+            hdrColor?.Dispose();
+            throw;
+        }
     }
 
     public void Dispose()
@@ -64,11 +108,31 @@ public sealed unsafe class ForwardSceneTargets : IDisposable
             return;
         }
 
-        HdrSrvHeap->Release();
-        _dsvHeap->Release();
-        _rtvHeap->Release();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+        ReleaseHeaps();
         Depth.Dispose();
         HdrColor.Dispose();
-        _disposed = true;
+    }
+
+    private void ReleaseHeaps()
+    {
+        if (HdrSrvHeap != null)
+        {
+            HdrSrvHeap->Release();
+            HdrSrvHeap = null;
+        }
+
+        if (_dsvHeap != null)
+        {
+            _dsvHeap->Release();
+            _dsvHeap = null;
+        }
+
+        if (_rtvHeap != null)
+        {
+            _rtvHeap->Release();
+            _rtvHeap = null;
+        }
     }
 }

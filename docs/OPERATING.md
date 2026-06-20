@@ -275,13 +275,13 @@ dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool
 Verify an archive:
 
 ```powershell
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify <package.opkg>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify <package.opkg> --key <trusted-public-key.pem>
 ```
 
 Unpack an archive:
 
 ```powershell
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack <package.opkg> <target-dir>
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack <package.opkg> <empty-target-dir> --key <trusted-public-key.pem>
 ```
 
 Use `--format json` on validation when another tool needs structured output.
@@ -391,113 +391,10 @@ Rules:
 
 ## Content And Package Workflow
 
-For low-level content readers:
-
-1. Add parsing code in `Opus.Content`.
-2. Keep renderer allocation out of parsers.
-3. Test with small byte arrays or generated assets.
-4. Return structured errors where possible.
-
-For package behavior:
-
-1. Add manifest or archive types in `Opus.Content.Packaging`.
-2. Add validation in the library layer.
-3. Add diagnostics with stable codes.
-4. Add CLI behavior only after library behavior is tested.
-5. Test text and JSON reporters when output changes.
+Package authoring, validation, signing, and verification are documented in
+[CONTENT_PACKAGING.md](CONTENT_PACKAGING.md).
 
 ## Networking Workflow
 
-Use `Opus.Net` for contracts and loopback transports. Use `Opus.Net.Udp` for
-UDP.
-
-When changing transport behavior:
-
-1. Update contract tests when observable behavior changes.
-2. Add loopback coverage if higher layers can test against the contract.
-3. Add UDP frame codec tests for wire changes.
-4. Add integration tests for heartbeat, deadline, disconnect, queue limits, or
-   rate limits.
-5. Keep timing tests bounded and deterministic where possible.
-
-## Common Problems
-
-### Build sees old API after a file sync
-
-Run:
-
-```powershell
-dotnet build .\OpusEngine.sln -c Release -t:Rebuild
-```
-
-This clears stale incremental references without deleting source-side build
-scripts or known-good profiles.
-
-### D3D12 device creation fails
-
-Check:
-
-- Windows host;
-- compatible adapter;
-- graphics driver;
-- DXC availability;
-- whether non-D3D12 tests pass;
-- whether the failure is in PAL window setup, RHI device creation, swap chain,
-  or renderer resource setup.
-
-### Package validation reports path errors
-
-Check:
-
-- package-relative paths;
-- no absolute paths in the manifest;
-- no parent-directory traversal;
-- file size and SHA-256 hash match the manifest;
-- asset type matches the declared file.
-
-### UDP integration test flakes
-
-Check:
-
-- test timing options;
-- whether tests are running in parallel;
-- whether ports are available;
-- whether the assertion can observe an event list instead of sleeping blindly.
-
-### Consumer assembly fails to load
-
-Check:
-
-- path resolves;
-- file is a managed assembly;
-- dependencies can resolve;
-- exactly one suitable factory is visible;
-- factory has a public parameterless constructor;
-- `CreateIntegration()` returns a valid facade.
-
-### Editor opens but no model appears
-
-Check:
-
-- `--content-root` or project content roots;
-- whether the model browser lists the asset;
-- whether `inspect <model>` can read the glTF/GLB;
-- whether the node is hidden;
-- whether the camera needs `F` to frame the scene.
-
-## Review Checklist
-
-Before considering a change done:
-
-- the touched project builds;
-- the closest test project passes;
-- a neighboring layer test passes if the change crosses a boundary;
-- public contracts have tests;
-- backend behavior has backend tests;
-- CLI output changes have command tests;
-- diagnostics use stable codes;
-- generated output is not part of the change;
-- D3D12-only code stays in D3D12 projects;
-- platform-only code stays in PAL projects;
-- editor document mutations are undoable;
-- docs and command examples match the current CLI.
+Authenticated UDP operation, troubleshooting, and the completion checklist are
+documented in [NETWORKING_AND_REVIEW.md](NETWORKING_AND_REVIEW.md).

@@ -38,6 +38,7 @@ public sealed class LatencyLossWrappingTransport : INetTransport
     private long _inboundAttemptCount;
     private long _inboundDroppedPacketCount;
     private long _inboundDelayedPacketCount;
+    private long _rejectedScheduledPacketCount;
     private bool _disposed;
 
     /// <summary>Creates a wrapping transport over <paramref name="inner"/>. The
@@ -87,6 +88,8 @@ public sealed class LatencyLossWrappingTransport : INetTransport
     /// inbound-latency deadline.</summary>
     public int PendingScheduledReceiveCount => _scheduledInbound.Count;
 
+    public long RejectedScheduledPacketCount => _rejectedScheduledPacketCount;
+
     /// <inheritdoc />
     public string Name => _inner.Name;
 
@@ -106,6 +109,12 @@ public sealed class LatencyLossWrappingTransport : INetTransport
         if (_profile.AddedLatency <= TimeSpan.Zero)
         {
             return _inner.Send(target, payload);
+        }
+
+        if (_scheduled.Count >= _profile.MaxPendingPackets)
+        {
+            _rejectedScheduledPacketCount++;
+            return false;
         }
 
         _scheduled.Enqueue(new ScheduledSend(
@@ -207,6 +216,13 @@ public sealed class LatencyLossWrappingTransport : INetTransport
             if (_profile.InboundAddedLatency <= TimeSpan.Zero)
             {
                 destination.Add(ev);
+                continue;
+            }
+
+            if (_scheduledInbound.Count >= _profile.MaxPendingPackets)
+            {
+                _inboundDroppedPacketCount++;
+                _rejectedScheduledPacketCount++;
                 continue;
             }
 

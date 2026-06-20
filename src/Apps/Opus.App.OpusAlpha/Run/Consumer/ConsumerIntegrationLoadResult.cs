@@ -11,11 +11,16 @@ namespace Opus.App.OpusAlpha.Run.Consumer;
 /// </summary>
 public sealed record ConsumerIntegrationLoadResult
 {
-    private ConsumerIntegrationLoadResult(bool succeeded, ConsumerIntegration? integration, string? failureReason)
+    private ConsumerIntegrationLoadResult(
+        bool succeeded,
+        ConsumerIntegration? integration,
+        string? failureReason,
+        IDisposable? lifetime)
     {
         Succeeded = succeeded;
         Integration = integration;
         FailureReason = failureReason;
+        Lifetime = lifetime;
     }
 
     /// <summary>True when <see cref="Integration"/> was built; false when <see cref="FailureReason"/> is set.</summary>
@@ -27,17 +32,43 @@ public sealed record ConsumerIntegrationLoadResult
     /// <summary>One-line, actionable explanation on failure; <see langword="null"/> on success.</summary>
     public string? FailureReason { get; }
 
+    internal IDisposable? Lifetime { get; }
+
     /// <summary>Builds a success result around a constructed integration.</summary>
     public static ConsumerIntegrationLoadResult Success(ConsumerIntegration integration)
     {
         ArgumentNullException.ThrowIfNull(integration);
-        return new ConsumerIntegrationLoadResult(succeeded: true, integration, failureReason: null);
+        return new ConsumerIntegrationLoadResult(
+            succeeded: true,
+            integration,
+            failureReason: null,
+            lifetime: null);
     }
 
     /// <summary>Builds a failure result around an actionable reason.</summary>
     public static ConsumerIntegrationLoadResult Failure(string reason)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
-        return new ConsumerIntegrationLoadResult(succeeded: false, integration: null, reason);
+        return new ConsumerIntegrationLoadResult(
+            succeeded: false,
+            integration: null,
+            reason,
+            lifetime: null);
+    }
+
+    internal ConsumerIntegrationLoadResult AttachLifetime(IDisposable lifetime)
+    {
+        ArgumentNullException.ThrowIfNull(lifetime);
+        if (!Succeeded || Integration is null || Lifetime is not null)
+        {
+            throw new InvalidOperationException(
+                "A consumer lifetime can only be attached once to a successful load.");
+        }
+
+        return new ConsumerIntegrationLoadResult(
+            succeeded: true,
+            Integration,
+            failureReason: null,
+            lifetime);
     }
 }

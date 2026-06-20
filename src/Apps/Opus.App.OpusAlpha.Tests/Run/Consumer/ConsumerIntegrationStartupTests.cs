@@ -16,7 +16,7 @@ public sealed class ConsumerIntegrationStartupTests
     [InlineData("   ")]
     public void Resolve_proceeds_without_an_integration_when_no_path_is_supplied(string? path)
     {
-        var resolution = ConsumerIntegrationStartup.Resolve(path);
+        var resolution = ConsumerIntegrationStartup.Resolve(path, trustKeyPath: null);
 
         resolution.CanProceed.Should().BeTrue();
         resolution.Integration.Should().BeNull();
@@ -28,7 +28,7 @@ public sealed class ConsumerIntegrationStartupTests
     {
         var missing = Path.Combine(Path.GetTempPath(), $"opus-missing-consumer-{Guid.NewGuid():N}.dll");
 
-        var resolution = ConsumerIntegrationStartup.Resolve(missing);
+        var resolution = ConsumerIntegrationStartup.Resolve(missing, "unused.pem");
 
         resolution.CanProceed.Should().BeFalse();
         resolution.Integration.Should().BeNull();
@@ -41,7 +41,10 @@ public sealed class ConsumerIntegrationStartupTests
         var fixturePath = Path.Combine(AppContext.BaseDirectory, FixtureAssemblyFileName);
         File.Exists(fixturePath).Should().BeTrue();
 
-        var resolution = ConsumerIntegrationStartup.Resolve(fixturePath);
+        using var trust = ConsumerPluginTrustFixture.Create(fixturePath);
+        var resolution = ConsumerIntegrationStartup.Resolve(
+            trust.AssemblyPath,
+            trust.PublicKeyPath);
 
         resolution.CanProceed.Should().BeTrue();
         resolution.Integration.Should().NotBeNull();

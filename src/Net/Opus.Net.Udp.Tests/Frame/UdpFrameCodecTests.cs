@@ -9,215 +9,149 @@ namespace Opus.Net.Udp.Tests.Frame;
 public sealed class UdpFrameCodecTests
 {
     private static readonly ConnectionId SampleId = new(0x0102030405060708UL);
+    private static readonly byte[] Key = UdpAuthentication.DeriveKey("frame-codec-tests-only");
 
-    [Fact]
-    public void Hello_round_trips_with_empty_payload_and_zero_id()
+    [Theory]
+    [InlineData(UdpFrameKind.Hello, 0UL)]
+    [InlineData(UdpFrameKind.WelcomeAck, 0UL)]
+    [InlineData(UdpFrameKind.Payload, 12UL)]
+    [InlineData(UdpFrameKind.Heartbeat, 13UL)]
+    [InlineData(UdpFrameKind.Disconnect, 14UL)]
+    public void Authenticated_frame_round_trips(UdpFrameKind kind, ulong sequence)
     {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        var written = UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, buffer);
-        written.Should().Be(UdpFrameHeader.SizeBytes);
+        var id = kind == UdpFrameKind.Hello ? ConnectionId.None : SampleId;
+        var payload = kind == UdpFrameKind.Payload ? new byte[] { 1, 2, 3, 4 } : Array.Empty<byte>();
+        var buffer = new byte[
+            UdpFrameHeader.SizeBytes + payload.Length + UdpFrameHeader.AuthenticationTagBytes];
 
-        UdpFrameCodec.TryDecode(buffer, out var header, out var payload).Should().BeTrue();
-        header.Kind.Should().Be(UdpFrameKind.Hello);
-        header.ConnectionId.Should().Be(ConnectionId.None);
-        header.PayloadLength.Should().Be(0);
-        payload.IsEmpty.Should().BeTrue();
-    }
+        var written = UdpFrameCodec.EncodeAuthenticated(kind, id, sequence, payload, Key, buffer);
 
-    [Fact]
-    public void WelcomeAck_round_trips_with_assigned_id()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.WelcomeAck, SampleId, ReadOnlySpan<byte>.Empty, buffer);
-
-        UdpFrameCodec.TryDecode(buffer, out var header, out _).Should().BeTrue();
-        header.Kind.Should().Be(UdpFrameKind.WelcomeAck);
-        header.ConnectionId.Should().Be(SampleId);
-    }
-
-    [Fact]
-    public void Payload_round_trips_byte_for_byte()
-    {
-        var bytes = new byte[] { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60 };
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes + bytes.Length];
-
-        var written = UdpFrameCodec.Encode(UdpFrameKind.Payload, SampleId, bytes, buffer);
         written.Should().Be(buffer.Length);
+        UdpFrameCodec.TryDecodeAuthenticated(buffer, Key, out var header, out var decoded).Should().BeTrue();
+        header.Kind.Should().Be(kind);
+        header.ConnectionId.Should().Be(id);
+        header.Sequence.Should().Be(sequence);
+        decoded.ToArray().Should().Equal(payload);
+    }
 
-        UdpFrameCodec.TryDecode(buffer, out var header, out var payload).Should().BeTrue();
+    [Fact]
+    public void Payload_or_header_tampering_is_rejected()
+    {
+        var buffer = EncodePayload();
+        buffer[UdpFrameHeader.PayloadOffset] ^= 0x80;
+        UdpFrameCodec.TryDecodeAuthenticated(buffer, Key, out _, out _).Should().BeFalse();
+
+        buffer = EncodePayload();
+        buffer[16] ^= 0x01;
+        UdpFrameCodec.TryDecodeAuthenticated(buffer, Key, out _, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Wrong_key_is_rejected()
+    {
+        var wrongKey = UdpAuthentication.DeriveKey("different-frame-codec-key");
+        UdpFrameCodec.TryDecodeAuthenticated(EncodePayload(), wrongKey, out _, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Envelope_can_be_inspected_without_authenticating()
+    {
+        var buffer = EncodePayload();
+
+        UdpFrameCodec.TryDecodeEnvelope(buffer, out var header, out var payload, out var tag)
+            .Should().BeTrue();
         header.Kind.Should().Be(UdpFrameKind.Payload);
         header.ConnectionId.Should().Be(SampleId);
-        header.PayloadLength.Should().Be((ushort)bytes.Length);
-        payload.ToArray().Should().Equal(bytes);
+        payload.ToArray().Should().Equal(0x10, 0x20, 0x30);
+        tag.Length.Should().Be(UdpFrameHeader.AuthenticationTagBytes);
     }
 
-    [Fact]
-    public void Heartbeat_round_trips_with_no_payload()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    [InlineData(5)]
+    public void Corrupt_envelope_is_rejected(int byteIndex)
     {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Heartbeat, SampleId, ReadOnlySpan<byte>.Empty, buffer);
+        var buffer = EncodePayload();
+        buffer[byteIndex] = 0xFF;
 
-        UdpFrameCodec.TryDecode(buffer, out var header, out _).Should().BeTrue();
-        header.Kind.Should().Be(UdpFrameKind.Heartbeat);
-        header.PayloadLength.Should().Be(0);
+        UdpFrameCodec.TryDecodeEnvelope(buffer, out _, out _, out _).Should().BeFalse();
     }
 
     [Fact]
-    public void Disconnect_round_trips_with_no_payload()
+    public void Truncation_and_trailing_bytes_are_rejected()
     {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Disconnect, SampleId, ReadOnlySpan<byte>.Empty, buffer);
+        var buffer = EncodePayload();
+        UdpFrameCodec.TryDecodeEnvelope(buffer.AsSpan(0, buffer.Length - 1), out _, out _, out _)
+            .Should().BeFalse();
 
-        UdpFrameCodec.TryDecode(buffer, out var header, out _).Should().BeTrue();
-        header.Kind.Should().Be(UdpFrameKind.Disconnect);
-        header.ConnectionId.Should().Be(SampleId);
+        var extended = new byte[buffer.Length + 1];
+        buffer.CopyTo(extended, 0);
+        UdpFrameCodec.TryDecodeEnvelope(extended, out _, out _, out _).Should().BeFalse();
     }
 
     [Fact]
-    public void Magic_prefix_is_GUDP()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, buffer);
-
-        buffer[0].Should().Be((byte)'G');
-        buffer[1].Should().Be((byte)'U');
-        buffer[2].Should().Be((byte)'D');
-        buffer[3].Should().Be((byte)'P');
-    }
-
-    [Fact]
-    public void Wrong_magic_is_rejected()
-    {
-        var datagram = new byte[UdpFrameHeader.SizeBytes];
-        datagram[0] = (byte)'X';
-        datagram[1] = (byte)'U';
-        datagram[2] = (byte)'D';
-        datagram[3] = (byte)'P';
-        datagram[4] = UdpFrameHeader.CurrentVersion;
-        datagram[5] = (byte)UdpFrameKind.Hello;
-
-        UdpFrameCodec.TryDecode(datagram, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Wrong_version_is_rejected()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, buffer);
-        buffer[4] = 0xFF;
-
-        UdpFrameCodec.TryDecode(buffer, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Unknown_kind_is_rejected()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, buffer);
-        buffer[5] = 0xEE;
-
-        UdpFrameCodec.TryDecode(buffer, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Invalid_kind_byte_zero_is_rejected()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, buffer);
-        buffer[5] = (byte)UdpFrameKind.Invalid;
-
-        UdpFrameCodec.TryDecode(buffer, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Truncated_buffer_below_header_size_is_rejected()
-    {
-        var datagram = new byte[UdpFrameHeader.SizeBytes - 1];
-        UdpFrameCodec.TryDecode(datagram, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Truncated_payload_is_rejected()
-    {
-        var payload = new byte[10];
-        Span<byte> full = stackalloc byte[UdpFrameHeader.SizeBytes + payload.Length];
-        UdpFrameCodec.Encode(UdpFrameKind.Payload, SampleId, payload, full);
-
-        var truncated = full[..(full.Length - 2)].ToArray();
-        UdpFrameCodec.TryDecode(truncated, out _, out _).Should().BeFalse();
-    }
-
-    [Fact]
-    public void Oversized_payload_throws_on_encode()
+    public void Oversized_payload_and_undersized_destination_are_rejected()
     {
         var oversized = new byte[UdpFrameHeader.MaxPayloadBytes + 1];
-        var destination = new byte[UdpFrameHeader.SizeBytes + oversized.Length];
+        var destination = new byte[
+            UdpFrameHeader.SizeBytes + oversized.Length + UdpFrameHeader.AuthenticationTagBytes];
 
-        var act = () => UdpFrameCodec.Encode(
+        Action oversizedAction = () => UdpFrameCodec.EncodeAuthenticated(
             UdpFrameKind.Payload,
             SampleId,
+            sequence: 1,
             oversized,
+            Key,
             destination);
+        oversizedAction.Should().Throw<ArgumentException>().And.ParamName.Should().Be("payload");
 
-        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("payload");
+        Action undersizedAction = () => UdpFrameCodec.EncodeAuthenticated(
+            UdpFrameKind.Heartbeat,
+            SampleId,
+            sequence: 1,
+            ReadOnlySpan<byte>.Empty,
+            Key,
+            new byte[UdpFrameHeader.SizeBytes]);
+        undersizedAction.Should().Throw<ArgumentException>().And.ParamName.Should().Be("destination");
     }
 
     [Fact]
-    public void Undersized_destination_throws_on_encode()
-    {
-        Span<byte> tooSmall = stackalloc byte[UdpFrameHeader.SizeBytes - 1];
-        var act = () =>
-        {
-            Span<byte> tiny = stackalloc byte[UdpFrameHeader.SizeBytes - 1];
-            UdpFrameCodec.Encode(UdpFrameKind.Hello, ConnectionId.None, ReadOnlySpan<byte>.Empty, tiny);
-        };
-
-        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("destination");
-    }
-
-    [Fact]
-    public void Connection_id_is_written_little_endian()
-    {
-        Span<byte> buffer = stackalloc byte[UdpFrameHeader.SizeBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.WelcomeAck, SampleId, ReadOnlySpan<byte>.Empty, buffer);
-
-        buffer[8].Should().Be(0x08);
-        buffer[9].Should().Be(0x07);
-        buffer[10].Should().Be(0x06);
-        buffer[11].Should().Be(0x05);
-        buffer[12].Should().Be(0x04);
-        buffer[13].Should().Be(0x03);
-        buffer[14].Should().Be(0x02);
-        buffer[15].Should().Be(0x01);
-    }
-
-    [Fact]
-    public void Payload_length_is_written_little_endian()
-    {
-        var payload = new byte[0x0102];
-        var buffer = new byte[UdpFrameHeader.SizeBytes + payload.Length];
-        UdpFrameCodec.Encode(UdpFrameKind.Payload, SampleId, payload, buffer);
-
-        buffer[6].Should().Be(0x02);
-        buffer[7].Should().Be(0x01);
-    }
-
-    [Fact]
-    public void Max_size_payload_round_trips()
+    public void Maximum_payload_round_trips()
     {
         var payload = new byte[UdpFrameHeader.MaxPayloadBytes];
-        for (var i = 0; i < payload.Length; i++)
+        for (var index = 0; index < payload.Length; index++)
         {
-            payload[i] = (byte)(i & 0xFF);
+            payload[index] = (byte)index;
         }
 
         var buffer = new byte[UdpFrameHeader.MaxDatagramBytes];
-        UdpFrameCodec.Encode(UdpFrameKind.Payload, SampleId, payload, buffer);
+        UdpFrameCodec.EncodeAuthenticated(
+            UdpFrameKind.Payload,
+            SampleId,
+            sequence: 1,
+            payload,
+            Key,
+            buffer);
 
-        UdpFrameCodec.TryDecode(buffer, out var header, out var decoded).Should().BeTrue();
+        UdpFrameCodec.TryDecodeAuthenticated(buffer, Key, out var header, out var decoded).Should().BeTrue();
         header.PayloadLength.Should().Be(UdpFrameHeader.MaxPayloadBytes);
         decoded.Length.Should().Be(payload.Length);
-        decoded[0].Should().Be(payload[0]);
-        decoded[payload.Length - 1].Should().Be(payload[^1]);
+        decoded[^1].Should().Be(payload[^1]);
+    }
+
+    private static byte[] EncodePayload()
+    {
+        var payload = new byte[] { 0x10, 0x20, 0x30 };
+        var buffer = new byte[
+            UdpFrameHeader.SizeBytes + payload.Length + UdpFrameHeader.AuthenticationTagBytes];
+        UdpFrameCodec.EncodeAuthenticated(
+            UdpFrameKind.Payload,
+            SampleId,
+            sequence: 7,
+            payload,
+            Key,
+            buffer);
+        return buffer;
     }
 }

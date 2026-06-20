@@ -1,6 +1,7 @@
 using Opus.Content.Packaging.Diagnostics;
 using Opus.Content.Packaging.Paths;
 using Opus.Content.Packaging.Validation;
+using Opus.Foundation.IO;
 
 namespace Opus.Content.Packaging.Archive;
 
@@ -12,16 +13,29 @@ namespace Opus.Content.Packaging.Archive;
 /// </summary>
 public static class OpusPackageExtractor
 {
-    /// <summary>Extracts <paramref name="archivePath"/> into <paramref name="targetDirectory"/>.</summary>
+    /// <summary>
+    /// Verifies a signed archive and extracts it into <paramref name="targetDirectory"/> while
+    /// retaining the same open archive handle across both operations.
+    /// </summary>
     public static PackageArchiveExtractionResult Extract(
-        string archivePath,
-        string targetDirectory,
-        OpusPackageArchiveLimits limits)
+        PackageArchiveVerifyRequest verificationRequest,
+        string targetDirectory)
     {
+        ArgumentNullException.ThrowIfNull(verificationRequest);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetDirectory);
+        if (!verificationRequest.RequireSignature || verificationRequest.PublicKey is null)
+        {
+            throw new ArgumentException(
+                "Package extraction requires a trusted public key and RequireSignature=true.",
+                nameof(verificationRequest));
+        }
 
         var diagnostics = new List<PackageDiagnostic>();
-        var opened = OpusPackageArchiveReader.TryOpen(archivePath, limits, out var reader, out var openDiagnostics);
+        var opened = OpusPackageArchiveReader.TryOpen(
+            verificationRequest.ArchivePath,
+            verificationRequest.Limits,
+            out var reader,
+            out var openDiagnostics);
         diagnostics.AddRange(openDiagnostics);
         if (!opened)
         {
@@ -30,14 +44,45 @@ public static class OpusPackageExtractor
 
         using (reader)
         {
-            var root = Path.GetFullPath(targetDirectory);
-            Directory.CreateDirectory(root);
-            foreach (var entryName in OrderedEntryNames(reader!))
+            var verification = PackageArchiveVerifier.VerifyOpened(
+                verificationRequest,
+                reader!,
+                diagnostics);
+            diagnostics = new List<PackageDiagnostic>(verification.Diagnostics);
+            if (!verification.Succeeded || !verification.SignatureVerified)
             {
-                if (!ExtractEntry(reader!, root, entryName, diagnostics))
-                {
-                    return new PackageArchiveExtractionResult(false, diagnostics);
-                }
+                return new PackageArchiveExtractionResult(false, diagnostics);
+            }
+
+            return ExtractVerified(reader!, targetDirectory, diagnostics);
+        }
+    }
+
+    private static PackageArchiveExtractionResult ExtractVerified(
+        OpusPackageArchiveReader reader,
+        string targetDirectory,
+        List<PackageDiagnostic> diagnostics)
+    {
+        var root = Path.GetFullPath(targetDirectory);
+        if (Directory.Exists(root) && Directory.EnumerateFileSystemEntries(root).Any())
+        {
+            diagnostics.Add(PackageDiagnostic.Create(
+                PackageDiagnosticSeverity.Error,
+                PackageDiagnosticCode.ArchiveTargetNotEmpty,
+                PackageDiagnosticTarget.Package,
+                $"Extraction target '{root}' is not empty.",
+                "Choose an empty directory so no unverified files survive beside package content.",
+                "package.archive.targetNotEmpty",
+                PackageDiagnosticArguments.Create(("path", root))));
+            return new PackageArchiveExtractionResult(false, diagnostics);
+        }
+
+        Directory.CreateDirectory(root);
+        foreach (var entryName in OrderedEntryNames(reader))
+        {
+            if (!ExtractEntry(reader, root, entryName, diagnostics))
+            {
+                return new PackageArchiveExtractionResult(false, diagnostics);
             }
         }
 
@@ -65,7 +110,7 @@ public static class OpusPackageExtractor
         }
 
         var destinationPath = path.ToPhysicalPath(root);
-        if (!IsWithin(root, destinationPath))
+        if (!PathContainment.IsWithin(root, destinationPath))
         {
             diagnostics.Add(PackageDiagnostic.Create(
                 PackageDiagnosticSeverity.Error,
@@ -78,28 +123,72 @@ public static class OpusPackageExtractor
             return false;
         }
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-        using var destination = new FileStream(
-            destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-        if (!reader.TryCopyEntryTo(entryName, destination, out var error))
+        var directory = Path.GetDirectoryName(destinationPath)!;
+        PathContainment.RejectReparsePoints(root, directory);
+        Directory.CreateDirectory(directory);
+        PathContainment.RejectReparsePoints(root, directory);
+
+        string? stagingPath = null;
+        try
         {
-            if (error is not null)
+            using (var destination = OpenStagingFile(directory, out stagingPath))
             {
-                diagnostics.Add(error);
+                if (!reader.TryCopyEntryTo(entryName, destination, out var error))
+                {
+                    if (error is not null)
+                    {
+                        diagnostics.Add(error);
+                    }
+
+                    return false;
+                }
+
+                destination.Flush(flushToDisk: true);
             }
 
-            return false;
+            File.Move(stagingPath, destinationPath, overwrite: false);
+            return true;
         }
-
-        return true;
+        finally
+        {
+            if (stagingPath is not null)
+            {
+                try
+                {
+                    File.Delete(stagingPath);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
     }
 
-    private static bool IsWithin(string root, string candidate)
+    private static FileStream OpenStagingFile(string directory, out string path)
     {
-        var normalisedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
-        var fullCandidate = Path.GetFullPath(candidate);
-        return string.Equals(fullCandidate, normalisedRoot, StringComparison.Ordinal)
-            || fullCandidate.StartsWith(normalisedRoot + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        for (var attempt = 0; attempt < 16; attempt++)
+        {
+            path = Path.Combine(directory, Path.GetRandomFileName());
+            try
+            {
+                return new FileStream(
+                    path,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    bufferSize: 81920,
+                    FileOptions.WriteThrough);
+            }
+            catch (IOException) when (File.Exists(path) || Directory.Exists(path))
+            {
+            }
+        }
+
+        path = string.Empty;
+        throw new IOException("Unable to allocate an extraction staging file.");
     }
 
     private static bool HasErrors(List<PackageDiagnostic> diagnostics)

@@ -26,11 +26,20 @@ namespace Opus.Engine.Rhi.Direct3D12;
 /// (<see cref="SetPipelineState"/>, <see cref="SetDescriptorHeaps"/>) live in this main
 /// file alongside the lifecycle methods.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only unmanaged command-list COM references.")]
 public sealed unsafe partial class D3D12CommandList : IRhiCommandList
 {
     private readonly ID3D12CommandAllocator*[] _allocators;
     private ID3D12GraphicsCommandList* _commandList;
     private bool _disposed;
+
+    ~D3D12CommandList()
+    {
+        ReleaseNative();
+    }
 
     private D3D12CommandList(string debugName, ID3D12CommandAllocator*[] allocators, ID3D12GraphicsCommandList* commandList)
     {
@@ -172,6 +181,13 @@ public sealed unsafe partial class D3D12CommandList : IRhiCommandList
             return;
         }
 
+        ReleaseNative();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseNative()
+    {
         if (_commandList != null)
         {
             _commandList->Release();
@@ -186,7 +202,5 @@ public sealed unsafe partial class D3D12CommandList : IRhiCommandList
                 _allocators[i] = null;
             }
         }
-
-        _disposed = true;
     }
 }

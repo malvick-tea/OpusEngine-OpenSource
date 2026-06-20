@@ -47,7 +47,7 @@ internal sealed class FontPackageFileValidator : IPackageFileValidator
             return FontError(context, "TrueType collection has no member fonts.");
         }
 
-        var directoryEnd = 12 + (fontCount * 4);
+        var directoryEnd = 12L + ((long)fontCount * sizeof(uint));
         return directoryEnd > context.Bytes.Length
             ? FontError(context, "TrueType collection directory is truncated.")
             : Array.Empty<PackageDiagnostic>();

@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Numerics;
 using Opus.Content.Meshes;
 
 namespace Opus.Engine.Renderer.Direct3D12.Scene;
@@ -17,8 +20,18 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// pin the dedup + slot-mapping arithmetic without standing up a D3D12 device.</summary>
 public static class MultiMaterialAtlasPlan
 {
+    public const int MaxMaterials = 256;
+    public const int MaxUniqueImages = 512;
+
     public static MultiMaterialAtlasLayout Build(IReadOnlyList<GltfMaterialBinding> bindings)
     {
+        ArgumentNullException.ThrowIfNull(bindings);
+        if (bindings.Count > MaxMaterials)
+        {
+            throw new InvalidDataException(
+                $"Material count {bindings.Count} exceeds the {MaxMaterials}-material limit.");
+        }
+
         if (bindings.Count == 0)
         {
             return EmptyLayout;
@@ -38,8 +51,20 @@ public static class MultiMaterialAtlasPlan
                 return null;
             }
 
+            if (idx < 0)
+            {
+                throw new InvalidDataException(
+                    $"Image index {idx} must be non-negative.");
+            }
+
             if (!imageToSlot.TryGetValue(idx, out var existing))
             {
+                if (uniqueIndices.Count >= MaxUniqueImages)
+                {
+                    throw new InvalidDataException(
+                        $"Unique image count exceeds the {MaxUniqueImages}-image limit.");
+                }
+
                 existing = uniqueIndices.Count;
                 imageToSlot[idx] = existing;
                 uniqueIndices.Add(idx);
@@ -51,6 +76,7 @@ public static class MultiMaterialAtlasPlan
         for (var m = 0; m < bindings.Count; m++)
         {
             var binding = bindings[m];
+            ValidateFactors(binding, m);
             slots[m] = new MultiMaterialSlot(SlotFor(binding.BaseColorImageIndex), binding.BaseColorFactor)
             {
                 NormalSlot = SlotFor(binding.NormalImageIndex),
@@ -65,6 +91,35 @@ public static class MultiMaterialAtlasPlan
 
         return new MultiMaterialAtlasLayout(uniqueIndices, slots);
     }
+
+    private static void ValidateFactors(GltfMaterialBinding binding, int materialIndex)
+    {
+        if (!InUnitRange(binding.BaseColorFactor)
+            || !InUnitRange(binding.MetallicFactor)
+            || !InUnitRange(binding.RoughnessFactor)
+            || !IsFiniteNonNegative(binding.EmissiveFactor))
+        {
+            throw new InvalidDataException(
+                $"Material {materialIndex} contains invalid PBR factors.");
+        }
+    }
+
+    private static bool InUnitRange(Vector4 value) =>
+        InUnitRange(value.X)
+        && InUnitRange(value.Y)
+        && InUnitRange(value.Z)
+        && InUnitRange(value.W);
+
+    private static bool InUnitRange(float value) =>
+        float.IsFinite(value) && value is >= 0f and <= 1f;
+
+    private static bool IsFiniteNonNegative(Vector3 value) =>
+        float.IsFinite(value.X)
+        && float.IsFinite(value.Y)
+        && float.IsFinite(value.Z)
+        && value.X >= 0f
+        && value.Y >= 0f
+        && value.Z >= 0f;
 
     private static readonly MultiMaterialAtlasLayout EmptyLayout = new(
         new int[0],

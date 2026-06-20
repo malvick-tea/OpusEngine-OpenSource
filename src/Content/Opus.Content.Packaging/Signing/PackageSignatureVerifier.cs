@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Opus.Content.Packaging.Validation;
+using Opus.Foundation.Security;
 
 namespace Opus.Content.Packaging.Signing;
 
@@ -52,8 +53,24 @@ public static class PackageSignatureVerifier
             return PackageSignatureVerification.AlgorithmUnsupported;
         }
 
-        var actualSha256 = PackageFileHash.ComputeSha256Hex(manifestBytes);
-        if (!string.Equals(actualSha256, signature.ManifestSha256, StringComparison.OrdinalIgnoreCase))
+        if (!EcdsaKeyPolicy.IsNistP256(publicKey))
+        {
+            return PackageSignatureVerification.SignatureInvalid;
+        }
+
+        byte[] declaredSha256;
+        try
+        {
+            declaredSha256 = Convert.FromHexString(signature.ManifestSha256);
+        }
+        catch (FormatException)
+        {
+            return PackageSignatureVerification.Malformed;
+        }
+
+        var actualSha256 = SHA256.HashData(manifestBytes);
+        if (declaredSha256.Length != actualSha256.Length
+            || !CryptographicOperations.FixedTimeEquals(actualSha256, declaredSha256))
         {
             return PackageSignatureVerification.ManifestHashMismatch;
         }

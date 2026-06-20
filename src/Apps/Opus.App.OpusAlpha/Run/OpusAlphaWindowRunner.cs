@@ -138,24 +138,32 @@ public static class OpusAlphaWindowRunner
 
     private static void RunHost(D3D12OpusHostInstance instance)
     {
-        Console.CancelKeyPress += (_, eventArgs) =>
+        void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs eventArgs)
         {
             eventArgs.Cancel = true;
             instance.Host.RequestShutdown();
-        };
+        }
 
-        instance.Host.Start();
-        var clock = Stopwatch.StartNew();
-        var lastElapsed = clock.Elapsed;
-        while (true)
+        Console.CancelKeyPress += OnCancelKeyPress;
+        try
         {
-            var now = clock.Elapsed;
-            var delta = now - lastElapsed;
-            lastElapsed = now;
-            if (!instance.Host.Step(delta == TimeSpan.Zero ? TargetFrameDelta : delta))
+            instance.Host.Start();
+            var clock = Stopwatch.StartNew();
+            var lastElapsed = clock.Elapsed;
+            while (true)
             {
-                break;
+                var now = clock.Elapsed;
+                var delta = now - lastElapsed;
+                lastElapsed = now;
+                if (!instance.Host.Step(delta == TimeSpan.Zero ? TargetFrameDelta : delta))
+                {
+                    break;
+                }
             }
+        }
+        finally
+        {
+            Console.CancelKeyPress -= OnCancelKeyPress;
         }
     }
 

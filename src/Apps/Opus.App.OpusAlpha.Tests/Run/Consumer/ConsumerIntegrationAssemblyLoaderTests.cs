@@ -15,7 +15,7 @@ public sealed class ConsumerIntegrationAssemblyLoaderTests
     [InlineData("   ")]
     public void Load_fails_when_path_is_blank(string path)
     {
-        var result = ConsumerIntegrationAssemblyLoader.Load(path);
+        var result = ConsumerIntegrationAssemblyLoader.Load(path, "unused.pem");
 
         result.Succeeded.Should().BeFalse();
         result.FailureReason.Should().NotBeNullOrWhiteSpace();
@@ -26,7 +26,7 @@ public sealed class ConsumerIntegrationAssemblyLoaderTests
     {
         var missing = Path.Combine(Path.GetTempPath(), $"opus-missing-consumer-{Guid.NewGuid():N}.dll");
 
-        var result = ConsumerIntegrationAssemblyLoader.Load(missing);
+        var result = ConsumerIntegrationAssemblyLoader.Load(missing, "unused.pem");
 
         result.Succeeded.Should().BeFalse();
         result.FailureReason.Should().Contain("was not found");
@@ -39,7 +39,10 @@ public sealed class ConsumerIntegrationAssemblyLoaderTests
         File.WriteAllText(bogus, "this is plainly not a portable-executable image");
         try
         {
-            var result = ConsumerIntegrationAssemblyLoader.Load(bogus);
+            using var trust = ConsumerPluginTrustFixture.Create(bogus);
+            var result = ConsumerIntegrationAssemblyLoader.Load(
+                trust.AssemblyPath,
+                trust.PublicKeyPath);
 
             result.Succeeded.Should().BeFalse();
             result.FailureReason.Should().Contain("not a loadable managed assembly");
@@ -57,11 +60,33 @@ public sealed class ConsumerIntegrationAssemblyLoaderTests
         File.Exists(fixturePath).Should().BeTrue(
             $"the consumer plugin fixture must be copied beside the tests at '{fixturePath}'");
 
-        var result = ConsumerIntegrationAssemblyLoader.Load(fixturePath);
+        using var trust = ConsumerPluginTrustFixture.Create(fixturePath);
+        var result = ConsumerIntegrationAssemblyLoader.Load(
+            trust.AssemblyPath,
+            trust.PublicKeyPath);
 
         result.Succeeded.Should().BeTrue(result.FailureReason);
         result.Integration.Should().NotBeNull();
         result.Integration!.HasContracts.Should().BeTrue();
         result.Integration.LifecycleHooks.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void Load_rejects_a_tampered_signed_assembly()
+    {
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, FixtureAssemblyFileName);
+        using var trust = ConsumerPluginTrustFixture.Create(fixturePath);
+        using (var stream = File.OpenWrite(trust.AssemblyPath))
+        {
+            stream.Position = stream.Length;
+            stream.WriteByte(0xFF);
+        }
+
+        var result = ConsumerIntegrationAssemblyLoader.Load(
+            trust.AssemblyPath,
+            trust.PublicKeyPath);
+
+        result.Succeeded.Should().BeFalse();
+        result.FailureReason.Should().Contain("signature verification failed");
     }
 }

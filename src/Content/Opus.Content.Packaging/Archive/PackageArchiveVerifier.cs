@@ -38,27 +38,50 @@ public static class PackageArchiveVerifier
 
         using (reader)
         {
-            diagnostics.AddRange(openDiagnostics);
-            if (!reader!.TryReadManifestBytes(out var manifestBytes, out var manifestError))
-            {
-                if (manifestError is not null)
-                {
-                    diagnostics.Add(manifestError);
-                }
-
-                return BuildResult(false, null, diagnostics);
-            }
-
-            var manifest = ParseManifest(manifestBytes, diagnostics);
-            if (manifest is null)
-            {
-                return BuildResult(false, null, diagnostics);
-            }
-
-            VerifyIntegrity(reader, manifest, diagnostics);
-            var signatureVerified = VerifySignature(reader, request, manifestBytes, diagnostics);
-            return BuildResult(signatureVerified, manifest, diagnostics);
+            return VerifyOpened(request, reader!, openDiagnostics);
         }
+    }
+
+    /// <summary>
+    /// Verifies an already-open archive. The caller keeps the reader alive so a trusted
+    /// extraction can consume the exact same file handle without a path-reopen race.
+    /// </summary>
+    public static PackageArchiveVerificationResult VerifyOpened(
+        PackageArchiveVerifyRequest request,
+        OpusPackageArchiveReader reader,
+        IReadOnlyList<PackageDiagnostic>? initialDiagnostics = null)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(reader);
+        if (request.RequireSignature && request.PublicKey is null)
+        {
+            throw new ArgumentException(
+                "RequireSignature needs a PublicKey to verify against.",
+                nameof(request));
+        }
+
+        var diagnostics = initialDiagnostics is null
+            ? new List<PackageDiagnostic>()
+            : new List<PackageDiagnostic>(initialDiagnostics);
+        if (!reader.TryReadManifestBytes(out var manifestBytes, out var manifestError))
+        {
+            if (manifestError is not null)
+            {
+                diagnostics.Add(manifestError);
+            }
+
+            return BuildResult(false, null, diagnostics);
+        }
+
+        var manifest = ParseManifest(manifestBytes, diagnostics);
+        if (manifest is null)
+        {
+            return BuildResult(false, null, diagnostics);
+        }
+
+        VerifyIntegrity(reader, manifest, diagnostics);
+        var signatureVerified = VerifySignature(reader, request, manifestBytes, diagnostics);
+        return BuildResult(signatureVerified, manifest, diagnostics);
     }
 
     private static ContentPackageManifest? ParseManifest(byte[] manifestBytes, List<PackageDiagnostic> diagnostics)

@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Opus.Foundation.IO;
 
 namespace Opus.Content.Meshes;
 
@@ -94,7 +95,8 @@ public static class GltfFilePacker
                 "glTF buffers[0] has no uri — looks like an already-binary GLB; use GltfBinaryReader directly.");
         }
 
-        var binPath = Path.Combine(baseDir, uri);
+        var binPath = PathContainment.ResolveUnderRoot(baseDir, uri);
+        PathContainment.RejectReparsePoints(baseDir, binPath);
         if (!File.Exists(binPath))
         {
             throw new FileNotFoundException(

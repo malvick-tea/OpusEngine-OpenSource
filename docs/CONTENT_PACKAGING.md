@@ -228,9 +228,14 @@ Current command shape:
 validate <package-root> [--format text|json] [--locale en|ru] [--unlisted warning|error|ignore] [--max-deep-validation-bytes <bytes>]
 generate <content-root> --id <id> --name <display-name> --version <semver> [--created <iso-utc>] [--output <path>] [--locale en|ru]
 pack <content-root> [--id <id> --name <name> --version <semver>] [--manifest <path>] [--output <path.opkg>] [--key <private-key.pem> --key-id <id>] [--locale en|ru]
-verify <package.opkg> [--key <public-key.pem>] [--require-signature] [--locale en|ru]
-unpack <package.opkg> <target-dir> [--locale en|ru]
+verify <package.opkg> --key <trusted-public-key.pem> [--locale en|ru]
+verify <package.opkg> --integrity-only [--locale en|ru]
+unpack <package.opkg> <target-dir> --key <trusted-public-key.pem> [--locale en|ru]
 ```
+
+The unpack target must be empty. The extraction library requires a trusted
+public key; verification and extraction share one open archive handle so the
+package path cannot be swapped after signature checks.
 
 ## Validate
 
@@ -281,16 +286,17 @@ Use `--manifest <path>` when the manifest is outside the default location.
 
 ## Verify
 
-Verify archive structure and hashes:
+Verify archive structure, hashes, and publisher signature:
 
 ```powershell
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg --key .\keys\public-key.pem
 ```
 
-Require a valid signature:
+For a non-executable development artifact, verify integrity without asserting a
+publisher identity:
 
 ```powershell
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg --key .\keys\public-key.pem --require-signature
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- verify .\.local\sample.opkg --integrity-only
 ```
 
 ## Unpack
@@ -298,11 +304,11 @@ dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool
 Extract into a target directory:
 
 ```powershell
-dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack .\.local\sample.opkg .\.local\unpacked-sample
+dotnet run -c Release --project .\src\Tools\Opus.Tool.PackageValidator\Opus.Tool.PackageValidator.csproj -- unpack .\.local\sample.opkg .\.local\unpacked-sample --key .\keys\public-key.pem
 ```
 
-Extraction uses package path safety rules. Archive entries must not escape the
-target root.
+Extraction first verifies a trusted P-256 publisher signature, then applies
+package path safety rules. Archive entries must not escape the target root.
 
 ## Editor Content Helpers
 

@@ -3,63 +3,85 @@ using Opus.Engine.Pal.Application;
 
 namespace Opus.Engine.Pal.Windows.Application;
 
-/// <summary>
-/// Desktop Windows is mostly stateless from a lifecycle POV — the app is either running
-/// or shutting down. We still raise <see cref="StateChanged"/> on transitions so client
-/// code can wire in the same way as on mobile.
-/// </summary>
+/// <summary>Thread-safe lifecycle state for a desktop Windows host.</summary>
 public sealed class WindowsLifecycleService : ILifecycleService, IDisposable
 {
+    private readonly object _sync = new();
     private LifecycleState _state = LifecycleState.Starting;
     private bool _disposed;
 
-    public LifecycleState State => _state;
+    public LifecycleState State
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _state;
+            }
+        }
+    }
 
     public event Action<LifecycleState, LifecycleState>? StateChanged;
 
     public event Action? ShuttingDown;
 
-    public void EnterForeground()
-    {
-        Transition(LifecycleState.Foreground);
-    }
+    public void EnterForeground() => Transition(LifecycleState.Foreground);
 
-    public void EnterBackground()
-    {
-        Transition(LifecycleState.Background);
-    }
+    public void EnterBackground() => Transition(LifecycleState.Background);
 
     public void BeginShutdown()
     {
-        if (_state == LifecycleState.ShuttingDown)
+        Action<LifecycleState, LifecycleState>? stateChanged;
+        Action? shuttingDown;
+        LifecycleState previous;
+        lock (_sync)
         {
-            return;
+            if (_state == LifecycleState.ShuttingDown)
+            {
+                return;
+            }
+
+            previous = _state;
+            _state = LifecycleState.ShuttingDown;
+            stateChanged = StateChanged;
+            shuttingDown = ShuttingDown;
         }
 
-        Transition(LifecycleState.ShuttingDown);
-        ShuttingDown?.Invoke();
+        stateChanged?.Invoke(previous, LifecycleState.ShuttingDown);
+        shuttingDown?.Invoke();
     }
 
     private void Transition(LifecycleState next)
     {
-        if (_state == next)
+        Action<LifecycleState, LifecycleState>? stateChanged;
+        LifecycleState previous;
+        lock (_sync)
         {
-            return;
+            if (_disposed || _state == LifecycleState.ShuttingDown || _state == next)
+            {
+                return;
+            }
+
+            previous = _state;
+            _state = next;
+            stateChanged = StateChanged;
         }
 
-        var prev = _state;
-        _state = next;
-        StateChanged?.Invoke(prev, next);
+        stateChanged?.Invoke(previous, next);
     }
 
     public void Dispose()
     {
-        if (_disposed)
+        lock (_sync)
         {
-            return;
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
         }
 
         BeginShutdown();
-        _disposed = true;
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Opus.App.Editor.Cli;
 using Opus.Editor.Content;
+using Opus.Foundation.IO;
 
 namespace Opus.App.Editor.Run;
 
@@ -36,7 +37,17 @@ public static class EditorModelResolver
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentException.ThrowIfNullOrWhiteSpace(assetRef);
-        string path = Path.Combine(root, assetRef);
+        string path;
+        try
+        {
+            path = PathContainment.ResolveUnderRoot(root, assetRef);
+            PathContainment.RejectReparsePoints(root, path);
+        }
+        catch (Exception ex) when (ex is ArgumentException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
         if (!File.Exists(path))
         {
             return null;

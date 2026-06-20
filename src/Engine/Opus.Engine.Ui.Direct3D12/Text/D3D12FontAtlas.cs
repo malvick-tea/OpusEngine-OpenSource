@@ -20,6 +20,10 @@ namespace Opus.Engine.Ui.Direct3D12.Text;
 /// binds them.
 /// </para>
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only the unmanaged descriptor heap.")]
 public sealed unsafe class D3D12FontAtlas : IDisposable
 {
     /// <summary>Default bake size. Matches the Engine.Ui.Raylib bilingual atlas height so
@@ -38,6 +42,11 @@ public sealed unsafe class D3D12FontAtlas : IDisposable
     private readonly GpuDescriptorHandle _srvGpu;
     private ID3D12DescriptorHeap* _srvHeap;
     private bool _disposed;
+
+    ~D3D12FontAtlas()
+    {
+        ReleaseHeap();
+    }
 
     private D3D12FontAtlas(BakedGlyphAtlas bake, D3D12Texture texture, ID3D12DescriptorHeap* srvHeap, GpuDescriptorHandle srvGpu)
     {
@@ -101,13 +110,18 @@ public sealed unsafe class D3D12FontAtlas : IDisposable
         }
 
         _disposed = true;
+        ReleaseHeap();
+        _texture.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseHeap()
+    {
         if (_srvHeap != null)
         {
             _srvHeap->Release();
             _srvHeap = null;
         }
-
-        _texture.Dispose();
     }
 
     /// <summary>Uploads <paramref name="bake"/> to a freshly-created R8_UNORM texture on
@@ -115,25 +129,43 @@ public sealed unsafe class D3D12FontAtlas : IDisposable
     /// + CopyDest→PixelShaderResource transition, drains the GPU, releases staging.</summary>
     internal static D3D12FontAtlas Upload(D3D12RhiDevice device, BakedGlyphAtlas bake)
     {
-        var texture = device.CreateGraphicsTexture(new RhiTextureDescription(
-            AtlasDebugName,
-            bake.Width,
-            bake.Height,
-            1,
-            RhiTextureFormat.R8Unorm,
-            RhiTextureUsage.Sampled));
+        D3D12Texture? texture = null;
+        ID3D12DescriptorHeap* srvHeap = null;
+        D3D12Buffer? staging = null;
+        try
+        {
+            texture = device.CreateGraphicsTexture(new RhiTextureDescription(
+                AtlasDebugName,
+                bake.Width,
+                bake.Height,
+                1,
+                RhiTextureFormat.R8Unorm,
+                RhiTextureUsage.Sampled));
 
-        var srvHeap = device.CreateSrvDescriptorHeap(1u);
-        var srvGpu = device.CreateShaderResourceView(texture, srvHeap);
+            srvHeap = device.CreateSrvDescriptorHeap(1u);
+            var srvGpu = device.CreateShaderResourceView(texture, srvHeap);
 
-        using var cmdList = device.CreateGraphicsCommandList(UploadListDebugName, frameSlots: 1);
-        cmdList.Begin(0u);
-        var staging = device.ScheduleTextureUpload(texture, bake.Coverage, cmdList);
-        cmdList.End();
-        cmdList.ExecuteOn(device);
-        device.WaitForIdle();
-        staging.Dispose();
+            using var cmdList = device.CreateGraphicsCommandList(UploadListDebugName, frameSlots: 1);
+            cmdList.Begin(0u);
+            staging = device.ScheduleTextureUpload(texture, bake.Coverage, cmdList);
+            cmdList.End();
+            cmdList.ExecuteOn(device);
+            device.WaitForIdle();
+            staging.Dispose();
+            staging = null;
 
-        return new D3D12FontAtlas(bake, texture, srvHeap, srvGpu);
+            return new D3D12FontAtlas(bake, texture, srvHeap, srvGpu);
+        }
+        catch
+        {
+            staging?.Dispose();
+            if (srvHeap != null)
+            {
+                srvHeap->Release();
+            }
+
+            texture?.Dispose();
+            throw;
+        }
     }
 }

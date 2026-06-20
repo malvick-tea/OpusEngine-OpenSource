@@ -41,6 +41,7 @@ public sealed class ForwardScenePass : D3D12RenderPass
     private readonly float _clearAlpha;
     private readonly int _width;
     private readonly int _height;
+    private readonly bool _clearTargets;
 
     /// <summary>Number of indexed draw calls the pass issued — one per mesh primitive per batch,
     /// independent of instance count. This is the instancing win metric: with N repeated copies
@@ -73,7 +74,8 @@ public sealed class ForwardScenePass : D3D12RenderPass
         Vector3 clearColor,
         int width,
         int height,
-        float clearAlpha = 1f)
+        float clearAlpha = 1f,
+        bool clearTargets = true)
     {
         _hdrTarget = hdrTarget;
         _depthTarget = depthTarget;
@@ -90,6 +92,7 @@ public sealed class ForwardScenePass : D3D12RenderPass
         _clearAlpha = clearAlpha;
         _width = width;
         _height = height;
+        _clearTargets = clearTargets;
     }
 
     public override string Name => "ForwardScene";
@@ -106,8 +109,11 @@ public sealed class ForwardScenePass : D3D12RenderPass
         cmd.OMSetRenderTarget(_hdrRtv, _dsv);
         cmd.RSSetViewport(_width, _height);
         cmd.RSSetScissorRect(_width, _height);
-        cmd.ClearRenderTargetView(_hdrRtv, _clearColor.X, _clearColor.Y, _clearColor.Z, _clearAlpha);
-        cmd.ClearDepthStencilView(_dsv, depth: 1.0f);
+        if (_clearTargets)
+        {
+            cmd.ClearRenderTargetView(_hdrRtv, _clearColor.X, _clearColor.Y, _clearColor.Z, _clearAlpha);
+            cmd.ClearDepthStencilView(_dsv, depth: 1.0f);
+        }
 
         _atlas.BindHeapTo(cmd);
         cmd.SetGraphicsRootSignature(_rootSig);

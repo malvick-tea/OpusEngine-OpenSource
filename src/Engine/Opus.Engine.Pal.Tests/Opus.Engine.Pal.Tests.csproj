@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Opus.Engine.Pal\Opus.Engine.Pal.csproj" />
+    <ProjectReference Include="..\Opus.Engine.Pal.Windows\Opus.Engine.Pal.Windows.csproj" />
   </ItemGroup>
 
   <ItemGroup>

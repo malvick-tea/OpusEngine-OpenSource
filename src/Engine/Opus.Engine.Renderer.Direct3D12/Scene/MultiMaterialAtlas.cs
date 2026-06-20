@@ -19,6 +19,10 @@ namespace Opus.Engine.Renderer.Direct3D12.Scene;
 /// kinds) is uploaded once and viewed by several descriptors. <see cref="Dispose"/> releases the
 /// heap, the unique image textures, and the two fallback texels exactly once. Built via
 /// <see cref="MultiMaterialAtlasBuilder.BuildFromGlb"/>.</summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Design",
+    "MA0055:Do not use finalizer",
+    Justification = "The finalizer releases only the unmanaged descriptor heap.")]
 public sealed unsafe class MultiMaterialAtlas : IMaterialAtlas
 {
     private static readonly ResolvedMaterial NeutralFactors = new(
@@ -27,10 +31,15 @@ public sealed unsafe class MultiMaterialAtlas : IMaterialAtlas
     private readonly D3D12Texture[] _uniqueImageTextures;
     private readonly D3D12Texture _white;
     private readonly D3D12Texture _flatNormal;
-    private readonly ID3D12DescriptorHeap* _heap;
+    private ID3D12DescriptorHeap* _heap;
     private readonly ResolvedMaterial[] _materials;
     private readonly ResolvedMaterial _fallback;
     private bool _disposed;
+
+    ~MultiMaterialAtlas()
+    {
+        ReleaseHeap();
+    }
 
     internal MultiMaterialAtlas(
         D3D12RhiDevice device,
@@ -47,27 +56,55 @@ public sealed unsafe class MultiMaterialAtlas : IMaterialAtlas
             _uniqueImageTextures[i] = uniqueImageTextures[i];
         }
 
-        var runCount = (uint)materialSlots.Count + 1u;
-        _heap = device.CreateSrvDescriptorHeap(runCount * PbrMaterialMaps.MapsPerMaterial);
-
-        _materials = new ResolvedMaterial[materialSlots.Count];
-        for (var m = 0; m < materialSlots.Count; m++)
+        ID3D12DescriptorHeap* heap = null;
+        try
         {
-            var slot = materialSlots[m];
-            var table = PbrMaterialMaps.WriteRun(
-                device, _heap, (uint)m,
-                ImageOr(slot.UniqueImageSlot, white),
-                ImageOr(slot.NormalSlot, flatNormal),
-                ImageOr(slot.MetallicRoughnessSlot, white),
-                ImageOr(slot.OcclusionSlot, white),
-                ImageOr(slot.EmissiveSlot, white));
-            _materials[m] = new ResolvedMaterial(
-                table, slot.Factor, slot.MetallicFactor, slot.RoughnessFactor, slot.EmissiveFactor);
-        }
+            var runCount = checked((uint)materialSlots.Count + 1u);
+            heap = device.CreateSrvDescriptorHeap(
+                checked(runCount * PbrMaterialMaps.MapsPerMaterial));
 
-        var fallbackTable = PbrMaterialMaps.WriteRun(
-            device, _heap, (uint)materialSlots.Count, white, flatNormal, white, white, white);
-        _fallback = NeutralFactors with { MapTable = fallbackTable };
+            _materials = new ResolvedMaterial[materialSlots.Count];
+            for (var m = 0; m < materialSlots.Count; m++)
+            {
+                var slot = materialSlots[m];
+                var table = PbrMaterialMaps.WriteRun(
+                    device, heap, (uint)m,
+                    ImageOr(slot.UniqueImageSlot, white),
+                    ImageOr(slot.NormalSlot, flatNormal),
+                    ImageOr(slot.MetallicRoughnessSlot, white),
+                    ImageOr(slot.OcclusionSlot, white),
+                    ImageOr(slot.EmissiveSlot, white));
+                _materials[m] = new ResolvedMaterial(
+                    table,
+                    slot.Factor,
+                    slot.MetallicFactor,
+                    slot.RoughnessFactor,
+                    slot.EmissiveFactor);
+            }
+
+            var fallbackTable = PbrMaterialMaps.WriteRun(
+                device,
+                heap,
+                (uint)materialSlots.Count,
+                white,
+                flatNormal,
+                white,
+                white,
+                white);
+            _fallback = NeutralFactors with { MapTable = fallbackTable };
+            _heap = heap;
+            heap = null;
+        }
+        catch
+        {
+            if (heap != null)
+            {
+                heap->Release();
+            }
+
+            DisposeTextures();
+            throw;
+        }
     }
 
     /// <summary>How many distinct embedded images the atlas uploaded. Exposed for test
@@ -91,7 +128,17 @@ public sealed unsafe class MultiMaterialAtlas : IMaterialAtlas
             return;
         }
 
-        _heap->Release();
+        _disposed = true;
+        GC.SuppressFinalize(this);
+        ReleaseHeap();
+        DisposeTextures();
+    }
+
+    private D3D12Texture ImageOr(int? slot, D3D12Texture fallback)
+        => slot is int s && s >= 0 && s < _uniqueImageTextures.Length ? _uniqueImageTextures[s] : fallback;
+
+    private void DisposeTextures()
+    {
         foreach (var texture in _uniqueImageTextures)
         {
             texture.Dispose();
@@ -99,9 +146,14 @@ public sealed unsafe class MultiMaterialAtlas : IMaterialAtlas
 
         _white.Dispose();
         _flatNormal.Dispose();
-        _disposed = true;
     }
 
-    private D3D12Texture ImageOr(int? slot, D3D12Texture fallback)
-        => slot is int s && s >= 0 && s < _uniqueImageTextures.Length ? _uniqueImageTextures[s] : fallback;
+    private void ReleaseHeap()
+    {
+        if (_heap != null)
+        {
+            _heap->Release();
+            _heap = null;
+        }
+    }
 }

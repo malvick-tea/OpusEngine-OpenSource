@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Opus.Engine.Diagnostics.Reports;
 using Opus.Foundation;
+using Opus.Foundation.IO;
 
 namespace Opus.Engine.AlphaStress.Stress;
 
@@ -21,7 +22,6 @@ public sealed class AlphaStressReportWriter
 {
     private const string JsonExtension = ".json";
     private const string TextExtension = ".txt";
-    private const string TempExtension = ".tmp";
     private const string RowSeparator = ": ";
     private const string TextIndent = "  ";
     private const string TextHeader = "Opus alpha stress report";
@@ -105,8 +105,8 @@ public sealed class AlphaStressReportWriter
 
         try
         {
-            WriteAtomic(jsonPath, JsonSerializer.Serialize(outcome, JsonOptions));
-            WriteAtomic(textPath, BuildText(outcome));
+            AtomicFile.WriteAllText(jsonPath, JsonSerializer.Serialize(outcome, JsonOptions));
+            AtomicFile.WriteAllText(textPath, BuildText(outcome));
         }
         catch (UnauthorizedAccessException ex)
         {
@@ -128,19 +128,6 @@ public sealed class AlphaStressReportWriter
         }
 
         return AlphaStressReportWriteResult.Success(jsonPath, textPath);
-    }
-
-    private static void WriteAtomic(string finalPath, string content)
-    {
-        var tempPath = finalPath + TempExtension;
-        File.WriteAllText(tempPath, content, Encoding.UTF8);
-        if (File.Exists(finalPath))
-        {
-            File.Replace(tempPath, finalPath, destinationBackupFileName: null);
-            return;
-        }
-
-        File.Move(tempPath, finalPath);
     }
 
     private AlphaStressReportWriteIssue BuildIssue(Exception exception, string remediation) => new(

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Opus.Content.Packaging.Validation;
+using Opus.Foundation.Security;
 
 namespace Opus.Content.Packaging.Signing;
 
@@ -11,8 +12,6 @@ namespace Opus.Content.Packaging.Signing;
 /// </summary>
 public static class PackageSigner
 {
-    private const int RequiredKeySizeBits = 256;
-
     /// <summary>Signs <paramref name="manifestBytes"/> with <paramref name="privateKey"/>.</summary>
     /// <param name="manifestBytes">Exact manifest bytes to sign — the same bytes a verifier will
     /// re-read from the package.</param>
@@ -23,10 +22,10 @@ public static class PackageSigner
     {
         ArgumentNullException.ThrowIfNull(privateKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(keyId);
-        if (privateKey.KeySize != RequiredKeySizeBits)
+        if (!EcdsaKeyPolicy.IsNistP256(privateKey))
         {
             throw new ArgumentException(
-                $"Package signing requires a {RequiredKeySizeBits}-bit ECDSA key (P-256); the supplied key is {privateKey.KeySize}-bit.",
+                "Package signing requires an ECDSA key on the NIST P-256 curve.",
                 nameof(privateKey));
         }
 
